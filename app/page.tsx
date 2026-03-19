@@ -47,7 +47,7 @@ type Application = {
 const ROUTE_TITLE = "চট্টগ্রাম অক্সিজেন → রাঙামাটি";
 const ROUTE_FROM = "চট্টগ্রাম অক্সিজেন";
 const ROUTE_TO = "রাঙামাটি";
-const ROUTE_TIME = "সকাল ৭:০০ টা";
+const ROUTE_TIME = "সকাল ৬:৩০ টা";
 
 const seatLayout = [
   ["A1", "A2", null, "A3", "A4"],
@@ -309,13 +309,23 @@ export default function RMSTUBusApplicationPage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold sm:text-2xl md:text-3xl">
-                  RMSTU GST Admission Bus Application
+                  RMSTU GST Admission Bus Ticket
                 </h1>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200 sm:text-base">
                   Rangamati Science and Technology University-তে GST admission test দিতে আসা
-                  শিক্ষার্থীদের জন্য Bangladesh Jatiyoutabadi Chatrodol-এর পক্ষ থেকে বিশেষ বাস আবেদন
-                  সিস্টেম। শুধুমাত্র একটি রুট: চট্টগ্রাম অক্সিজেন থেকে রাঙামাটি।
+                  শিক্ষার্থীদের জন্য বাংলাদেশ জাতীয়তাবাদী ছাত্রদল, রাঙ্গামাটি বিজ্ঞান ও প্রযুক্তি বিশ্ববিদ্যালয় শাখার পক্ষ থেকে বাস সরবরাহ করা হচ্ছে। টিকেট কাটুন এখান থেকে।
                 </p>
+                <p>
+                  This web app was developed by{" "}
+                  <a
+                    href="https://www.facebook.com/sikder67991"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 font-semibold underline"
+                  >
+                    Tasfique Shikder Koushik
+                  </a>.
+                  </p>
               </div>
             </div>
 
@@ -344,7 +354,7 @@ export default function RMSTUBusApplicationPage() {
           <div className="space-y-4 xl:col-span-2 xl:space-y-6">
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-lg sm:text-xl">রুট তথ্য</CardTitle>
+                <CardTitle className="text-lg sm:text-xl">Ticket</CardTitle>
               </CardHeader>
               <CardContent className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 sm:text-base">
                 <div className="flex items-start gap-3">
@@ -362,7 +372,7 @@ export default function RMSTUBusApplicationPage() {
 
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-lg sm:text-xl">আবেদন ফর্ম</CardTitle>
+                <CardTitle className="text-lg sm:text-xl">Ticket Application</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
@@ -494,7 +504,7 @@ export default function RMSTUBusApplicationPage() {
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                  <Search className="h-5 w-5" /> আবেদন যাচাই
+                  <Search className="h-5 w-5" /> Ticket Search / Approval check
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -589,7 +599,7 @@ export default function RMSTUBusApplicationPage() {
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                  <LayoutDashboard className="h-5 w-5" /> Admin Access
+                  <LayoutDashboard className="h-5 w-5" /> Admin Access(Only for organizers)
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
