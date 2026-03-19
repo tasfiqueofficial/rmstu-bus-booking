@@ -74,10 +74,10 @@ function statusBadgeText(status: StatusType) {
 }
 
 function statusClass(status: StatusType) {
-  if (status === "approved") return "bg-emerald-100 text-emerald-700";
-  if (status === "rejected") return "bg-rose-100 text-rose-700";
-  if (status === "waitlisted") return "bg-amber-100 text-amber-700";
-  return "bg-slate-100 text-slate-700";
+  if (status === "approved") return "bg-green-100 text-green-800 border border-green-200";
+  if (status === "rejected") return "bg-red-100 text-red-700 border border-red-200";
+  if (status === "waitlisted") return "bg-amber-100 text-amber-700 border border-amber-200";
+  return "bg-white text-green-800 border border-green-200";
 }
 
 export default function RMSTUBusApplicationPage() {
@@ -299,88 +299,97 @@ export default function RMSTUBusApplicationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-3 py-4 sm:px-4 md:px-6">
+    <div className="min-h-screen bg-gradient-to-b from-green-50 via-white to-red-50 px-3 py-4 sm:px-4 md:px-6">
       <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
-        <div className="rounded-3xl bg-gradient-to-r from-slate-900 to-slate-700 p-4 text-white shadow-lg sm:p-6">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-3 sm:gap-4">
-              <div className="rounded-2xl bg-white/10 p-3">
-                <Bus className="h-7 w-7 sm:h-8 sm:w-8" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold sm:text-2xl md:text-3xl">
-                  RMSTU GST Admission Bus Ticket
-                </h1>
-                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200 sm:text-base">
-                  Rangamati Science and Technology University-তে GST admission test দিতে আসা
-                  শিক্ষার্থীদের জন্য বাংলাদেশ জাতীয়তাবাদী ছাত্রদল, রাঙ্গামাটি বিজ্ঞান ও প্রযুক্তি বিশ্ববিদ্যালয় শাখার পক্ষ থেকে বাস সরবরাহ করা হচ্ছে। টিকেট কাটুন এখান থেকে।
-                </p>
-                <p>
-                  This web app was developed by{" "}
-                  <a
-                    href="https://www.facebook.com/sikder67991"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 font-semibold underline"
-                  >
-                    Tasfique Shikder Koushik
-                  </a>.
+        <div className="overflow-hidden rounded-3xl border border-green-200 bg-white shadow-xl">
+          <div className="bg-gradient-to-r from-green-700 via-green-600 to-red-600 p-4 text-white sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3 sm:gap-4">
+                <div className="rounded-2xl bg-white/15 p-3 backdrop-blur">
+                  <Bus className="h-7 w-7 sm:h-8 sm:w-8" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold sm:text-2xl md:text-3xl">
+                    RMSTU GST Admission Bus Ticket
+                  </h1>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-white/90 sm:text-base">
+                    Rangamati Science and Technology University-তে GST admission test দিতে আসা
+                    শিক্ষার্থীদের জন্য বাংলাদেশ জাতীয়তাবাদী ছাত্রদল, রাঙ্গামাটি বিজ্ঞান ও প্রযুক্তি
+                    বিশ্ববিদ্যালয় শাখার পক্ষ থেকে বাস সরবরাহ করা হচ্ছে। টিকেট কাটুন এখান থেকে।
                   </p>
+                  <p className="mt-3 text-sm text-white/95">
+                    This web app was developed by{" "}
+                    <a
+                      href="https://www.facebook.com/sikder67991"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold underline decoration-white/80 underline-offset-4 hover:text-green-100"
+                    >
+                      Tasfique Shikder Koushik
+                    </a>
+                    .
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
-              <div className="rounded-2xl bg-white/10 p-3 text-center">
-                <div className="text-lg font-bold sm:text-xl">28</div>
-                <div className="text-[11px] text-slate-200 sm:text-xs">মোট সিট</div>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-3 text-center">
-                <div className="text-lg font-bold sm:text-xl">{pendingCount}</div>
-                <div className="text-[11px] text-slate-200 sm:text-xs">Pending</div>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-3 text-center">
-                <div className="text-lg font-bold sm:text-xl">{approvedCount}</div>
-                <div className="text-[11px] text-slate-200 sm:text-xs">Approved</div>
-              </div>
-              <div className="rounded-2xl bg-white/10 p-3 text-center">
-                <div className="text-lg font-bold sm:text-xl">{availableSeats}</div>
-                <div className="text-[11px] text-slate-200 sm:text-xs">খালি সিট</div>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
+                <div className="rounded-2xl border border-white/20 bg-white/10 p-3 text-center backdrop-blur">
+                  <div className="text-lg font-bold sm:text-xl">28</div>
+                  <div className="text-[11px] text-white/85 sm:text-xs">মোট সিট</div>
+                </div>
+                <div className="rounded-2xl border border-white/20 bg-white/10 p-3 text-center backdrop-blur">
+                  <div className="text-lg font-bold sm:text-xl">{pendingCount}</div>
+                  <div className="text-[11px] text-white/85 sm:text-xs">Pending</div>
+                </div>
+                <div className="rounded-2xl border border-white/20 bg-white/10 p-3 text-center backdrop-blur">
+                  <div className="text-lg font-bold sm:text-xl">{approvedCount}</div>
+                  <div className="text-[11px] text-white/85 sm:text-xs">Approved</div>
+                </div>
+                <div className="rounded-2xl border border-white/20 bg-white/10 p-3 text-center backdrop-blur">
+                  <div className="text-lg font-bold sm:text-xl">{availableSeats}</div>
+                  <div className="text-[11px] text-white/85 sm:text-xs">খালি সিট</div>
+                </div>
               </div>
             </div>
           </div>
+          <div className="h-2 w-full bg-gradient-to-r from-green-600 via-white to-red-600" />
         </div>
 
         <div className="grid gap-4 xl:grid-cols-3 xl:gap-6">
           <div className="space-y-4 xl:col-span-2 xl:space-y-6">
-            <Card className="rounded-3xl border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg sm:text-xl">Ticket</CardTitle>
+            <Card className="rounded-3xl border border-green-100 bg-white shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-green-800 sm:text-xl">Ticket</CardTitle>
               </CardHeader>
-              <CardContent className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 sm:text-base">
+              <CardContent className="rounded-2xl bg-green-50/60 p-4 text-sm text-slate-700 sm:text-base">
                 <div className="flex items-start gap-3">
-                  <MapPin className="mt-1 h-5 w-5 text-slate-500" />
+                  <div className="rounded-xl bg-red-100 p-2 text-red-600">
+                    <MapPin className="mt-0.5 h-5 w-5" />
+                  </div>
                   <div className="space-y-1">
-                    <div className="font-semibold">{ROUTE_TITLE}</div>
-                    <div className="text-slate-600">
+                    <div className="font-semibold text-green-900">{ROUTE_TITLE}</div>
+                    <div className="text-slate-700">
                       {ROUTE_FROM} → {ROUTE_TO}
                     </div>
-                    <div className="text-slate-600">ছাড়ার সময়: {ROUTE_TIME}</div>
+                    <div className="text-red-700 font-medium">ছাড়ার সময়: {ROUTE_TIME}</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="rounded-3xl border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg sm:text-xl">Ticket Application</CardTitle>
+            <Card className="rounded-3xl border border-green-100 bg-white shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-green-800 sm:text-xl">
+                  Ticket Application
+                </CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>নাম</Label>
+                  <Label className="text-green-900">নাম</Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                    <User className="absolute left-3 top-3.5 h-4 w-4 text-green-500" />
                     <Input
-                      className="h-11 rounded-2xl pl-10 text-base"
+                      className="h-11 rounded-2xl border-green-200 pl-10 text-base focus-visible:ring-green-500"
                       placeholder="পূর্ণ নাম লিখুন"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -389,13 +398,13 @@ export default function RMSTUBusApplicationPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>মোবাইল নম্বর</Label>
+                  <Label className="text-green-900">মোবাইল নম্বর</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                    <Phone className="absolute left-3 top-3.5 h-4 w-4 text-green-500" />
                     <Input
                       type="tel"
                       inputMode="numeric"
-                      className="h-11 rounded-2xl pl-10 text-base"
+                      className="h-11 rounded-2xl border-green-200 pl-10 text-base focus-visible:ring-green-500"
                       placeholder="01XXXXXXXXX"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -403,21 +412,23 @@ export default function RMSTUBusApplicationPage() {
                   </div>
                 </div>
 
-                <div className="sm:col-span-2 rounded-2xl bg-slate-50 p-4 text-xs leading-6 text-slate-600 sm:text-sm">
+                <div className="sm:col-span-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs leading-6 text-red-800 sm:text-sm">
                   একই সিটের জন্য একাধিক আবেদন করা যাবে। কিন্তু যে সিট approved হয়ে যাবে, সেটাতে আর
                   নতুন আবেদন করা যাবে না।
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="rounded-3xl border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                  <Ticket className="h-5 w-5" /> সিট নির্বাচন ও আবেদন
+            <Card className="rounded-3xl border border-green-100 bg-white shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg text-green-800 sm:text-xl">
+                  <Ticket className="h-5 w-5 text-red-600" /> সিট নির্বাচন ও আবেদন
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="rounded-2xl bg-slate-100 p-3 text-center text-sm font-medium">Driver</div>
+                <div className="rounded-2xl border border-green-200 bg-green-50 p-3 text-center text-sm font-medium text-green-900">
+                  Driver
+                </div>
 
                 <div className="space-y-2 sm:space-y-3">
                   {seatLayout.map((row, rowIndex) => (
@@ -434,19 +445,19 @@ export default function RMSTUBusApplicationPage() {
                             type="button"
                             disabled={isApproved || isSubmitting}
                             onClick={() => setSelectedSeat(seat)}
-                            className={`relative h-12 w-12 rounded-2xl text-sm font-semibold transition sm:h-14 sm:w-14 ${
+                            className={`relative h-12 w-12 rounded-2xl border text-sm font-semibold transition sm:h-14 sm:w-14 ${
                               isApproved
-                                ? "cursor-not-allowed bg-rose-100 text-rose-600"
+                                ? "cursor-not-allowed border-red-200 bg-red-100 text-red-700"
                                 : isSelected
-                                ? "bg-slate-900 text-white"
+                                ? "border-green-800 bg-green-700 text-white"
                                 : pendingCountForSeat > 0
-                                ? "bg-amber-100 text-amber-800 hover:bg-amber-200"
-                                : "bg-slate-100 hover:bg-slate-200"
+                                ? "border-amber-200 bg-amber-100 text-amber-800 hover:bg-amber-200"
+                                : "border-green-200 bg-white text-green-800 hover:bg-green-50"
                             }`}
                           >
                             {seat}
                             {pendingCountForSeat > 0 && !isApproved && (
-                              <span className="absolute -right-1 -top-1 rounded-full bg-amber-500 px-1.5 text-[10px] text-white">
+                              <span className="absolute -right-1 -top-1 rounded-full bg-red-600 px-1.5 text-[10px] text-white shadow">
                                 {pendingCountForSeat}
                               </span>
                             )}
@@ -457,34 +468,36 @@ export default function RMSTUBusApplicationPage() {
                   ))}
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="flex items-center gap-2">
-                    <span className="h-4 w-4 rounded bg-slate-100" /> Apply করা যায়
+                <div className="grid grid-cols-1 gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="flex items-center gap-2 rounded-xl bg-white p-2">
+                    <span className="h-4 w-4 rounded border border-green-200 bg-white" /> Apply করা যায়
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-4 w-4 rounded bg-slate-900" /> Selected
+                  <div className="flex items-center gap-2 rounded-xl bg-green-50 p-2">
+                    <span className="h-4 w-4 rounded bg-green-700" /> Selected
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-4 w-4 rounded bg-amber-100" /> Pending আবেদন আছে
+                  <div className="flex items-center gap-2 rounded-xl bg-amber-50 p-2">
+                    <span className="h-4 w-4 rounded bg-amber-200" /> Pending আবেদন আছে
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-4 w-4 rounded bg-rose-100" /> Approved
+                  <div className="flex items-center gap-2 rounded-xl bg-red-50 p-2">
+                    <span className="h-4 w-4 rounded bg-red-200" /> Approved
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 space-y-2">
+                <div className="rounded-2xl border border-green-100 bg-green-50/60 p-4 text-sm text-slate-700 space-y-2">
                   <div className="flex items-center justify-between gap-3">
                     <span>নির্বাচিত রুট</span>
-                    <span className="text-right font-semibold">{ROUTE_TITLE}</span>
+                    <span className="text-right font-semibold text-green-900">{ROUTE_TITLE}</span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span>নির্বাচিত সিট</span>
-                    <span className="font-semibold">{selectedSeat || "এখনো সিট নির্বাচন করা হয়নি"}</span>
+                    <span className="font-semibold text-red-700">
+                      {selectedSeat || "এখনো সিট নির্বাচন করা হয়নি"}
+                    </span>
                   </div>
                 </div>
 
                 <Button
-                  className="h-12 w-full rounded-2xl text-base"
+                  className="h-12 w-full rounded-2xl bg-red-600 text-base text-white hover:bg-red-700"
                   onClick={handleApply}
                   disabled={isSubmitting}
                 >
@@ -492,7 +505,7 @@ export default function RMSTUBusApplicationPage() {
                 </Button>
 
                 {message && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
+                  <div className="rounded-2xl border border-green-200 bg-white p-4 text-sm leading-6 text-slate-700 shadow-sm">
                     {message}
                   </div>
                 )}
@@ -501,34 +514,40 @@ export default function RMSTUBusApplicationPage() {
           </div>
 
           <div className="space-y-4 xl:space-y-6">
-            <Card className="rounded-3xl border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                  <Search className="h-5 w-5" /> Ticket Search / Approval check
+            <Card className="rounded-3xl border border-green-100 bg-white shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg text-green-800 sm:text-xl">
+                  <Search className="h-5 w-5 text-red-600" /> Ticket Search / Approval check
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label>টিকেট আইডি বা মোবাইল নম্বর</Label>
+                  <Label className="text-green-900">টিকেট আইডি বা মোবাইল নম্বর</Label>
                   <Input
                     type="text"
                     inputMode="text"
-                    className="h-11 rounded-2xl text-base"
+                    className="h-11 rounded-2xl border-green-200 text-base focus-visible:ring-green-500"
                     placeholder="RMSTU-123456 বা 01XXXXXXXXX"
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
                   />
                 </div>
-                <Button className="h-11 w-full rounded-2xl text-base" onClick={handleSearch}>
+                <Button
+                  className="h-11 w-full rounded-2xl bg-green-700 text-base text-white hover:bg-green-800"
+                  onClick={handleSearch}
+                >
                   সার্চ করুন
                 </Button>
 
                 {searchResults.length > 0 && (
                   <div className="space-y-3">
                     {searchResults.map((item) => (
-                      <div key={item.ticketId} className="rounded-3xl border p-4 text-sm leading-6">
+                      <div
+                        key={item.ticketId}
+                        className="rounded-3xl border border-green-100 bg-white p-4 text-sm leading-6 shadow-sm"
+                      >
                         <div className="mb-3 flex items-center justify-between gap-3">
-                          <span className="font-semibold">আবেদন পাওয়া গেছে</span>
+                          <span className="font-semibold text-green-900">আবেদন পাওয়া গেছে</span>
                           <Badge className={`rounded-full ${statusClass(item.status)}`}>
                             {statusBadgeText(item.status)}
                           </Badge>
@@ -558,37 +577,41 @@ export default function RMSTUBusApplicationPage() {
             </Card>
 
             {latestApplication && (
-              <Card className="rounded-3xl border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                    <ShieldCheck className="h-5 w-5" /> সদ্য করা আবেদন
+              <Card className="rounded-3xl border border-green-100 bg-white shadow-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg text-green-800 sm:text-xl">
+                    <ShieldCheck className="h-5 w-5 text-red-600" /> সদ্য করা আবেদন
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-3xl border border-dashed p-4 sm:p-5">
+                  <div className="rounded-3xl border border-red-200 bg-red-50/50 p-4 sm:p-5">
                     <div className="mb-4 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-sm text-slate-500">Ticket ID</div>
-                        <div className="text-base font-bold sm:text-lg">{latestApplication.ticketId}</div>
+                        <div className="text-base font-bold text-green-900 sm:text-lg">
+                          {latestApplication.ticketId}
+                        </div>
                       </div>
-                      <Badge className="rounded-full bg-slate-100 text-slate-700">Pending</Badge>
+                      <Badge className="rounded-full border border-amber-200 bg-amber-100 text-amber-800">
+                        Pending
+                      </Badge>
                     </div>
 
                     <div className="space-y-3 text-sm text-slate-700">
                       <div className="flex items-center gap-2">
-                        <User className="h-4 w-4" /> {latestApplication.name}
+                        <User className="h-4 w-4 text-green-700" /> {latestApplication.name}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4" /> {latestApplication.phone}
+                        <Phone className="h-4 w-4 text-green-700" /> {latestApplication.phone}
                       </div>
                       <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" /> {ROUTE_TITLE}
+                        <MapPin className="h-4 w-4 text-red-600" /> {ROUTE_TITLE}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Bus className="h-4 w-4" /> Seat {latestApplication.seat}
+                        <Bus className="h-4 w-4 text-green-700" /> Seat {latestApplication.seat}
                       </div>
                       <div className="flex items-center gap-2">
-                        <CalendarDays className="h-4 w-4" /> Pending approval
+                        <CalendarDays className="h-4 w-4 text-red-600" /> Pending approval
                       </div>
                     </div>
                   </div>
@@ -596,28 +619,32 @@ export default function RMSTUBusApplicationPage() {
               </Card>
             )}
 
-            <Card className="rounded-3xl border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                  <LayoutDashboard className="h-5 w-5" /> Admin Access(Only for organizers)
+            <Card className="rounded-3xl border border-green-100 bg-white shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg text-green-800 sm:text-xl">
+                  <LayoutDashboard className="h-5 w-5 text-red-600" /> Admin Access(Only for
+                  organizers)
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {!adminOpen ? (
                   <>
                     <Input
-                      className="h-11 rounded-2xl text-base"
+                      className="h-11 rounded-2xl border-green-200 text-base focus-visible:ring-green-500"
                       type="password"
                       placeholder="Admin passcode"
                       value={adminPasscode}
                       onChange={(e) => setAdminPasscode(e.target.value)}
                     />
-                    <Button className="h-11 w-full rounded-2xl text-base" onClick={handleAdminLogin}>
+                    <Button
+                      className="h-11 w-full rounded-2xl bg-green-700 text-base text-white hover:bg-green-800"
+                      onClick={handleAdminLogin}
+                    >
                       Admin Panel Open
                     </Button>
                   </>
                 ) : (
-                  <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-700">
+                  <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
                     Admin panel active.
                   </div>
                 )}
@@ -625,32 +652,34 @@ export default function RMSTUBusApplicationPage() {
             </Card>
 
             {adminOpen && (
-              <Card className="rounded-3xl border-0 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-lg sm:text-xl">Admin Dashboard</CardTitle>
+              <Card className="rounded-3xl border border-green-100 bg-white shadow-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg text-green-800 sm:text-xl">
+                    Admin Dashboard
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-slate-50 p-3 text-center">
-                      <div className="text-lg font-bold sm:text-xl">{pendingCount}</div>
-                      <div className="text-xs text-slate-500">Pending</div>
+                    <div className="rounded-2xl border border-green-100 bg-green-50 p-3 text-center">
+                      <div className="text-lg font-bold text-green-800 sm:text-xl">{pendingCount}</div>
+                      <div className="text-xs text-slate-600">Pending</div>
                     </div>
-                    <div className="rounded-2xl bg-emerald-50 p-3 text-center">
-                      <div className="text-lg font-bold sm:text-xl">{approvedCount}</div>
-                      <div className="text-xs text-slate-500">Approved</div>
+                    <div className="rounded-2xl border border-green-100 bg-green-100 p-3 text-center">
+                      <div className="text-lg font-bold text-green-800 sm:text-xl">{approvedCount}</div>
+                      <div className="text-xs text-slate-600">Approved</div>
                     </div>
-                    <div className="rounded-2xl bg-rose-50 p-3 text-center">
-                      <div className="text-lg font-bold sm:text-xl">{rejectedCount}</div>
-                      <div className="text-xs text-slate-500">Rejected</div>
+                    <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-center">
+                      <div className="text-lg font-bold text-red-700 sm:text-xl">{rejectedCount}</div>
+                      <div className="text-xs text-slate-600">Rejected</div>
                     </div>
-                    <div className="rounded-2xl bg-amber-50 p-3 text-center">
-                      <div className="text-lg font-bold sm:text-xl">{waitlistedCount}</div>
-                      <div className="text-xs text-slate-500">Waitlisted</div>
+                    <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-center">
+                      <div className="text-lg font-bold text-amber-700 sm:text-xl">{waitlistedCount}</div>
+                      <div className="text-xs text-slate-600">Waitlisted</div>
                     </div>
                   </div>
 
                   <div className="grid gap-3">
-                    <Badge className="w-fit rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                    <Badge className="w-fit rounded-full border border-green-200 bg-green-50 px-3 py-1 text-green-800">
                       Filter: {adminFilter}
                     </Badge>
                     <div className="flex flex-wrap gap-2">
@@ -660,7 +689,9 @@ export default function RMSTUBusApplicationPage() {
                           type="button"
                           onClick={() => setAdminFilter(status)}
                           className={`rounded-full px-3 py-2 text-sm ${
-                            adminFilter === status ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                            adminFilter === status
+                              ? "bg-red-600 text-white"
+                              : "border border-green-200 bg-white text-green-800"
                           }`}
                         >
                           {status}
@@ -671,9 +702,12 @@ export default function RMSTUBusApplicationPage() {
 
                   <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
                     {adminApplications.map((item) => (
-                      <div key={item.id} className="rounded-2xl border p-4 text-sm text-slate-700">
+                      <div
+                        key={item.id}
+                        className="rounded-2xl border border-green-100 bg-white p-4 text-sm text-slate-700 shadow-sm"
+                      >
                         <div className="mb-3 flex items-center justify-between gap-3">
-                          <div className="font-semibold">{item.name}</div>
+                          <div className="font-semibold text-green-900">{item.name}</div>
                           <Badge className={`rounded-full ${statusClass(item.status)}`}>
                             {statusBadgeText(item.status)}
                           </Badge>
@@ -698,7 +732,7 @@ export default function RMSTUBusApplicationPage() {
 
                         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
                           <Button
-                            className="rounded-2xl"
+                            className="rounded-2xl bg-green-700 text-white hover:bg-green-800"
                             disabled={adminBusyId === item.id || item.status === "approved"}
                             onClick={() => updateStatus(item, "approved")}
                           >
@@ -706,7 +740,7 @@ export default function RMSTUBusApplicationPage() {
                           </Button>
                           <Button
                             variant="outline"
-                            className="rounded-2xl"
+                            className="rounded-2xl border-amber-300 text-amber-700 hover:bg-amber-50"
                             disabled={adminBusyId === item.id || item.status === "waitlisted"}
                             onClick={() => updateStatus(item, "waitlisted")}
                           >
@@ -714,7 +748,7 @@ export default function RMSTUBusApplicationPage() {
                           </Button>
                           <Button
                             variant="outline"
-                            className="rounded-2xl"
+                            className="rounded-2xl border-red-300 text-red-700 hover:bg-red-50"
                             disabled={adminBusyId === item.id || item.status === "rejected"}
                             onClick={() => updateStatus(item, "rejected")}
                           >
@@ -725,7 +759,7 @@ export default function RMSTUBusApplicationPage() {
                     ))}
 
                     {adminApplications.length === 0 && (
-                      <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
+                      <div className="rounded-2xl border border-green-100 bg-green-50 p-4 text-sm text-slate-600">
                         কোনো data পাওয়া যায়নি।
                       </div>
                     )}
@@ -734,9 +768,11 @@ export default function RMSTUBusApplicationPage() {
               </Card>
             )}
 
-            <Card className="rounded-3xl border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-lg sm:text-xl">গুরুত্বপূর্ণ নির্দেশনা</CardTitle>
+            <Card className="rounded-3xl border border-green-100 bg-white shadow-md">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-green-800 sm:text-xl">
+                  গুরুত্বপূর্ণ নির্দেশনা
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <ol className="list-decimal space-y-2 pl-5 text-sm leading-7 text-slate-700 sm:text-base">
