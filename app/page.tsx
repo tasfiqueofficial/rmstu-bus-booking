@@ -16,13 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
   Bus,
@@ -33,15 +26,12 @@ import {
   CalendarDays,
   Ticket,
   ShieldCheck,
-  LogIn,
   CheckCircle2,
   XCircle,
   Clock3,
-  Users,
   LayoutDashboard,
 } from "lucide-react";
 
-type RouteType = "oxygen" | "khagrachhari";
 type StatusType = "pending" | "approved" | "rejected" | "waitlisted";
 
 type Application = {
@@ -49,29 +39,15 @@ type Application = {
   ticketId: string;
   name: string;
   phone: string;
-  route: RouteType;
   seat: string;
   status: StatusType;
   createdAt: string;
 };
 
-const ROUTES: Record<
-  RouteType,
-  { title: string; from: string; to: string; departure: string }
-> = {
-  oxygen: {
-    title: "চট্টগ্রাম অক্সিজেন → রাঙামাটি",
-    from: "চট্টগ্রাম অক্সিজেন",
-    to: "রাঙামাটি",
-    departure: "সকাল ৭:০০ টা",
-  },
-  khagrachhari: {
-    title: "খাগড়াছড়ি → রাঙামাটি",
-    from: "খাগড়াছড়ি",
-    to: "রাঙামাটি",
-    departure: "সকাল ৭:৩০ টা",
-  },
-};
+const ROUTE_TITLE = "চট্টগ্রাম অক্সিজেন → রাঙামাটি";
+const ROUTE_FROM = "চট্টগ্রাম অক্সিজেন";
+const ROUTE_TO = "রাঙামাটি";
+const ROUTE_TIME = "সকাল ৭:০০ টা";
 
 const seatLayout = [
   ["A1", "A2", null, "A3", "A4"],
@@ -80,6 +56,7 @@ const seatLayout = [
   ["D1", "D2", null, "D3", "D4"],
   ["E1", "E2", null, "E3", "E4"],
   ["F1", "F2", null, "F3", "F4"],
+  ["G1", "G2", null, "G3", "G4"],
 ];
 
 const ADMIN_PASSCODE = "rmstu-admin-2026";
@@ -107,7 +84,6 @@ export default function RMSTUBusApplicationPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-  const [selectedRoute, setSelectedRoute] = useState<RouteType>("oxygen");
   const [selectedSeat, setSelectedSeat] = useState("");
   const [message, setMessage] = useState("");
   const [latestApplication, setLatestApplication] = useState<Application | null>(null);
@@ -117,57 +93,44 @@ export default function RMSTUBusApplicationPage() {
   const [adminPasscode, setAdminPasscode] = useState("");
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminFilter, setAdminFilter] = useState<StatusType | "all">("pending");
-  const [adminRouteFilter, setAdminRouteFilter] = useState<RouteType | "all">("all");
   const [adminBusyId, setAdminBusyId] = useState("");
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "applications"), (snapshot) => {
       const data = snapshot.docs
         .map((item) => ({ id: item.id, ...(item.data() as Application) }))
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
       setApplications(data);
     });
 
     return () => unsub();
   }, []);
 
-  const totalSeats = seatLayout.flat().filter(Boolean).length;
-  const currentRouteInfo = ROUTES[selectedRoute];
+  const totalSeats = 28;
 
-  const approvedSeatsByRoute = useMemo(() => {
-    return applications
-      .filter((item) => item.status === "approved" && item.route === selectedRoute)
-      .map((item) => item.seat);
-  }, [applications, selectedRoute]);
+  const approvedSeats = useMemo(() => {
+    return applications.filter((item) => item.status === "approved").map((item) => item.seat);
+  }, [applications]);
 
   const pendingCountsBySeat = useMemo(() => {
     const map: Record<string, number> = {};
     applications
-      .filter((item) => item.route === selectedRoute && item.status === "pending")
+      .filter((item) => item.status === "pending")
       .forEach((item) => {
         map[item.seat] = (map[item.seat] || 0) + 1;
       });
     return map;
-  }, [applications, selectedRoute]);
+  }, [applications]);
 
-  const approvedOxygen = applications.filter(
-    (item) => item.route === "oxygen" && item.status === "approved"
-  ).length;
-  const approvedKhagra = applications.filter(
-    (item) => item.route === "khagrachhari" && item.status === "approved"
-  ).length;
-  const oxygenAvailable = totalSeats - approvedOxygen;
-  const khagraAvailable = totalSeats - approvedKhagra;
-
-  const pendingCount = applications.filter((item) => item.status === "pending").length;
   const approvedCount = applications.filter((item) => item.status === "approved").length;
+  const availableSeats = totalSeats - approvedCount;
+  const pendingCount = applications.filter((item) => item.status === "pending").length;
   const rejectedCount = applications.filter((item) => item.status === "rejected").length;
   const waitlistedCount = applications.filter((item) => item.status === "waitlisted").length;
 
   const adminApplications = applications.filter((item) => {
-    const statusMatch = adminFilter === "all" ? true : item.status === adminFilter;
-    const routeMatch = adminRouteFilter === "all" ? true : item.route === adminRouteFilter;
-    return statusMatch && routeMatch;
+    if (adminFilter === "all") return true;
+    return item.status === adminFilter;
   });
 
   const generateTicketId = () => {
@@ -209,7 +172,7 @@ export default function RMSTUBusApplicationPage() {
       const approvedPhoneSnapshot = await getDocs(approvedPhoneQuery);
 
       if (!approvedPhoneSnapshot.empty) {
-        setMessage("এই মোবাইল নম্বর দিয়ে ইতোমধ্যে একটি টিকেট approved হয়েছে।");
+        setMessage("এই মোবাইল নম্বরে ইতোমধ্যে একটি approved ticket আছে।");
         setIsSubmitting(false);
         return;
       }
@@ -217,6 +180,7 @@ export default function RMSTUBusApplicationPage() {
       let ticketId = generateTicketId();
       let ticketQuery = query(collection(db, "applications"), where("ticketId", "==", ticketId));
       let ticketSnapshot = await getDocs(ticketQuery);
+
       while (!ticketSnapshot.empty) {
         ticketId = generateTicketId();
         ticketQuery = query(collection(db, "applications"), where("ticketId", "==", ticketId));
@@ -227,16 +191,18 @@ export default function RMSTUBusApplicationPage() {
         ticketId,
         name: cleanName,
         phone: cleanPhone,
-        route: selectedRoute,
         seat: selectedSeat,
         status: "pending",
         createdAt: new Date().toISOString(),
       };
 
       await addDoc(collection(db, "applications"), application);
+
       setLatestApplication(application);
       setMessage("আপনার আবেদন গ্রহণ করা হয়েছে। এখন এটি pending আছে।");
       setSelectedSeat("");
+      setName("");
+      setPhone("");
     } catch {
       setMessage("কোনো সমস্যা হয়েছে। আবার চেষ্টা করুন।");
     } finally {
@@ -255,8 +221,7 @@ export default function RMSTUBusApplicationPage() {
     }
 
     const found = applications.filter(
-      (item) =>
-        item.ticketId.toLowerCase() === value || item.phone.toLowerCase() === value
+      (item) => item.ticketId.toLowerCase() === value || item.phone.toLowerCase() === value
     );
 
     if (found.length === 0) {
@@ -286,7 +251,6 @@ export default function RMSTUBusApplicationPage() {
       if (nextStatus === "approved") {
         const approvedSeatQuery = query(
           collection(db, "applications"),
-          where("route", "==", application.route),
           where("seat", "==", application.seat),
           where("status", "==", "approved")
         );
@@ -316,11 +280,7 @@ export default function RMSTUBusApplicationPage() {
 
       if (nextStatus === "approved") {
         const sameSeatPending = applications.filter(
-          (item) =>
-            item.id !== application.id &&
-            item.route === application.route &&
-            item.seat === application.seat &&
-            item.status === "pending"
+          (item) => item.id !== application.id && item.seat === application.seat && item.status === "pending"
         );
 
         for (const item of sameSeatPending) {
@@ -339,62 +299,78 @@ export default function RMSTUBusApplicationPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <div className="rounded-3xl bg-gradient-to-r from-slate-900 to-slate-700 p-6 text-white shadow-lg">
+    <div className="min-h-screen bg-slate-50 px-3 py-4 sm:px-4 md:px-6">
+      <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
+        <div className="rounded-3xl bg-gradient-to-r from-slate-900 to-slate-700 p-4 text-white shadow-lg sm:p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-4">
+            <div className="flex items-start gap-3 sm:gap-4">
               <div className="rounded-2xl bg-white/10 p-3">
-                <Bus className="h-8 w-8" />
+                <Bus className="h-7 w-7 sm:h-8 sm:w-8" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold md:text-3xl">
-                  RMSTU GST Admission Bus Ticket
+                <h1 className="text-xl font-bold sm:text-2xl md:text-3xl">
+                  RMSTU GST Admission Bus Application
                 </h1>
-                <p className="mt-2 max-w-3xl text-sm text-slate-200 md:text-base">
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-200 sm:text-base">
                   Rangamati Science and Technology University-তে GST admission test দিতে আসা
-                  ছাত্রছাত্রীদের জন্য বাংলাদেশ জাতীয়তাবাদী ছাত্রদল রাঙ্গামাটি বিজ্ঞান ও প্রযুক্তি বিশ্ববিদ্যালয় শাখা -এর পক্ষ থেকে বিশেষ বাস
-                  । এখানে সরাসরি ticket। আমাদের একজন প্রতিনিধি আপনাকে কল দেওয়ার মাধ্যমে আপনার টিকেটটি অ্যাপ্রুভ করবে । This web app is developed by Tasfique shikder Koushik.
+                  শিক্ষার্থীদের জন্য Bangladesh Jatiyoutabadi Chatrodol-এর পক্ষ থেকে বিশেষ বাস আবেদন
+                  সিস্টেম। শুধুমাত্র একটি রুট: চট্টগ্রাম অক্সিজেন থেকে রাঙামাটি।
                 </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
               <div className="rounded-2xl bg-white/10 p-3 text-center">
-                <div className="text-xl font-bold">2</div>
-                <div className="text-xs text-slate-200">মোট বাস</div>
+                <div className="text-lg font-bold sm:text-xl">28</div>
+                <div className="text-[11px] text-slate-200 sm:text-xs">মোট সিট</div>
               </div>
               <div className="rounded-2xl bg-white/10 p-3 text-center">
-                <div className="text-xl font-bold">{pendingCount}</div>
-                <div className="text-xs text-slate-200">Ticket Pending</div>
+                <div className="text-lg font-bold sm:text-xl">{pendingCount}</div>
+                <div className="text-[11px] text-slate-200 sm:text-xs">Pending</div>
               </div>
               <div className="rounded-2xl bg-white/10 p-3 text-center">
-                <div className="text-xl font-bold">{approvedCount}</div>
-                <div className="text-xs text-slate-200">Ticket Approved</div>
+                <div className="text-lg font-bold sm:text-xl">{approvedCount}</div>
+                <div className="text-[11px] text-slate-200 sm:text-xs">Approved</div>
               </div>
               <div className="rounded-2xl bg-white/10 p-3 text-center">
-                <div className="text-xl font-bold">Free</div>
-                <div className="text-xs text-slate-200">ভাড়া</div>
+                <div className="text-lg font-bold sm:text-xl">{availableSeats}</div>
+                <div className="text-[11px] text-slate-200 sm:text-xs">খালি সিট</div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-6 xl:grid-cols-3">
-          <div className="space-y-6 xl:col-span-2">
+        <div className="grid gap-4 xl:grid-cols-3 xl:gap-6">
+          <div className="space-y-4 xl:col-span-2 xl:space-y-6">
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <LogIn className="h-5 w-5" /> Ticket
-                </CardTitle>
+                <CardTitle className="text-lg sm:text-xl">রুট তথ্য</CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
+              <CardContent className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 sm:text-base">
+                <div className="flex items-start gap-3">
+                  <MapPin className="mt-1 h-5 w-5 text-slate-500" />
+                  <div className="space-y-1">
+                    <div className="font-semibold">{ROUTE_TITLE}</div>
+                    <div className="text-slate-600">
+                      {ROUTE_FROM} → {ROUTE_TO}
+                    </div>
+                    <div className="text-slate-600">ছাড়ার সময়: {ROUTE_TIME}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-3xl border-0 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg sm:text-xl">আবেদন ফর্ম</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>নাম</Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
                     <Input
-                      className="rounded-2xl pl-10"
+                      className="h-11 rounded-2xl pl-10 text-base"
                       placeholder="পূর্ণ নাম লিখুন"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -407,7 +383,9 @@ export default function RMSTUBusApplicationPage() {
                   <div className="relative">
                     <Phone className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
                     <Input
-                      className="rounded-2xl pl-10"
+                      type="tel"
+                      inputMode="numeric"
+                      className="h-11 rounded-2xl pl-10 text-base"
                       placeholder="01XXXXXXXXX"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
@@ -415,67 +393,28 @@ export default function RMSTUBusApplicationPage() {
                   </div>
                 </div>
 
-                <div className="space-y-2 md:col-span-2">
-                  <Label>রুট নির্বাচন</Label>
-                  <Select
-                    value={selectedRoute}
-                    onValueChange={(value) => {
-                      setSelectedRoute(value as RouteType);
-                      setSelectedSeat("");
-                    }}
-                  >
-                    <SelectTrigger className="rounded-2xl">
-                      <SelectValue placeholder="রুট নির্বাচন করুন" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="oxygen">চট্টগ্রাম অক্সিজেন → রাঙামাটি</SelectItem>
-                      <SelectItem value="khagrachhari">খাগড়াছড়ি → রাঙামাটি</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="md:col-span-2 rounded-2xl bg-slate-50 p-4 text-xs text-slate-600">
-                  একটি মোবাইল নম্বরে একাধিক seat-এ apply করা যাবে, কিন্তু final approved হবে মাত্র
-                  একটি। একই seat-এর জন্য অনেকেই apply করতে পারবে।
+                <div className="sm:col-span-2 rounded-2xl bg-slate-50 p-4 text-xs leading-6 text-slate-600 sm:text-sm">
+                  একই সিটের জন্য একাধিক আবেদন করা যাবে। কিন্তু যে সিট approved হয়ে যাবে, সেটাতে আর
+                  নতুন আবেদন করা যাবে না।
                 </div>
               </CardContent>
             </Card>
 
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-xl">বাস রুট ও আসন অবস্থা</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-3xl border p-5">
-                  <div className="text-lg font-semibold">{ROUTES.oxygen.title}</div>
-                  <div className="mt-2 text-sm text-slate-500">খালি approved seat: {oxygenAvailable}</div>
-                  <div className="mt-2 text-sm text-slate-500">চূড়ান্ত approved: {approvedOxygen}</div>
-                </div>
-                <div className="rounded-3xl border p-5">
-                  <div className="text-lg font-semibold">{ROUTES.khagrachhari.title}</div>
-                  <div className="mt-2 text-sm text-slate-500">খালি approved seat: {khagraAvailable}</div>
-                  <div className="mt-2 text-sm text-slate-500">চূড়ান্ত approved: {approvedKhagra}</div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-3xl border-0 shadow-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Ticket className="h-5 w-5" /> আসনের জন্য আবেদন করুন
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                  <Ticket className="h-5 w-5" /> সিট নির্বাচন ও আবেদন
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-5">
-                <div className="rounded-2xl bg-slate-100 p-3 text-center text-sm font-medium">
-                  Driver
-                </div>
+                <div className="rounded-2xl bg-slate-100 p-3 text-center text-sm font-medium">Driver</div>
 
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {seatLayout.map((row, rowIndex) => (
-                    <div key={rowIndex} className="flex items-center justify-center gap-3">
+                    <div key={rowIndex} className="flex items-center justify-center gap-2 sm:gap-3">
                       {row.map((seat) => {
-                        if (!seat) return <div key={`${rowIndex}-gap`} className="w-6" />;
-                        const isApproved = approvedSeatsByRoute.includes(seat);
+                        if (!seat) return <div key={`${rowIndex}-gap`} className="w-4 sm:w-6" />;
+                        const isApproved = approvedSeats.includes(seat);
                         const pendingCountForSeat = pendingCountsBySeat[seat] || 0;
                         const isSelected = selectedSeat === seat;
 
@@ -485,7 +424,7 @@ export default function RMSTUBusApplicationPage() {
                             type="button"
                             disabled={isApproved || isSubmitting}
                             onClick={() => setSelectedSeat(seat)}
-                            className={`relative h-12 w-12 rounded-2xl text-sm font-semibold transition ${
+                            className={`relative h-12 w-12 rounded-2xl text-sm font-semibold transition sm:h-14 sm:w-14 ${
                               isApproved
                                 ? "cursor-not-allowed bg-rose-100 text-rose-600"
                                 : isSelected
@@ -508,7 +447,7 @@ export default function RMSTUBusApplicationPage() {
                   ))}
                 </div>
 
-                <div className="flex flex-wrap gap-4 text-sm text-slate-600">
+                <div className="grid grid-cols-1 gap-2 text-sm text-slate-600 sm:grid-cols-2 lg:grid-cols-4">
                   <div className="flex items-center gap-2">
                     <span className="h-4 w-4 rounded bg-slate-100" /> Apply করা যায়
                   </div>
@@ -519,29 +458,23 @@ export default function RMSTUBusApplicationPage() {
                     <span className="h-4 w-4 rounded bg-amber-100" /> Pending আবেদন আছে
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="h-4 w-4 rounded bg-rose-100" /> Final approved
+                    <span className="h-4 w-4 rounded bg-rose-100" /> Approved
                   </div>
                 </div>
 
                 <div className="rounded-2xl bg-slate-50 p-4 text-sm text-slate-700 space-y-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <span>নির্বাচিত রুট</span>
-                    <span className="font-semibold">{currentRouteInfo.title}</span>
+                    <span className="text-right font-semibold">{ROUTE_TITLE}</span>
                   </div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-3">
                     <span>নির্বাচিত সিট</span>
-                    <span className="font-semibold">
-                      {selectedSeat || "এখনো সিট নির্বাচন করা হয়নি"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>সিস্টেম</span>
-                    <span className="font-semibold">Apply → Admin Approval</span>
+                    <span className="font-semibold">{selectedSeat || "এখনো সিট নির্বাচন করা হয়নি"}</span>
                   </div>
                 </div>
 
                 <Button
-                  className="w-full rounded-2xl py-6 text-base"
+                  className="h-12 w-full rounded-2xl text-base"
                   onClick={handleApply}
                   disabled={isSubmitting}
                 >
@@ -549,7 +482,7 @@ export default function RMSTUBusApplicationPage() {
                 </Button>
 
                 {message && (
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700">
                     {message}
                   </div>
                 )}
@@ -557,45 +490,54 @@ export default function RMSTUBusApplicationPage() {
             </Card>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4 xl:space-y-6">
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <Search className="h-5 w-5" /> আবেদন / টিকেট যাচাই
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                  <Search className="h-5 w-5" /> আবেদন যাচাই
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>টিকেট আইডি বা মোবাইল নম্বর</Label>
                   <Input
-                    className="rounded-2xl"
+                    type="text"
+                    inputMode="text"
+                    className="h-11 rounded-2xl text-base"
                     placeholder="RMSTU-123456 বা 01XXXXXXXXX"
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
                   />
                 </div>
-                <Button className="w-full rounded-2xl" onClick={handleSearch}>
+                <Button className="h-11 w-full rounded-2xl text-base" onClick={handleSearch}>
                   সার্চ করুন
                 </Button>
 
                 {searchResults.length > 0 && (
                   <div className="space-y-3">
                     {searchResults.map((item) => (
-                      <div key={item.ticketId} className="rounded-3xl border p-4 text-sm">
-                        <div className="mb-3 flex items-center justify-between">
+                      <div key={item.ticketId} className="rounded-3xl border p-4 text-sm leading-6">
+                        <div className="mb-3 flex items-center justify-between gap-3">
                           <span className="font-semibold">আবেদন পাওয়া গেছে</span>
                           <Badge className={`rounded-full ${statusClass(item.status)}`}>
                             {statusBadgeText(item.status)}
                           </Badge>
                         </div>
-                        <div className="space-y-2 text-slate-700">
-                          <div><span className="font-medium">টিকেট আইডি:</span> {item.ticketId}</div>
-                          <div><span className="font-medium">নাম:</span> {item.name}</div>
-                          <div><span className="font-medium">মোবাইল:</span> {maskPhone(item.phone)}</div>
-                          <div><span className="font-medium">রুট:</span> {ROUTES[item.route].title}</div>
-                          <div><span className="font-medium">সিট:</span> {item.seat}</div>
+                        <div className="space-y-1 text-slate-700">
                           <div>
-                            <span className="font-medium">সময়:</span> {new Date(item.createdAt).toLocaleString()}
+                            <span className="font-medium">টিকেট আইডি:</span> {item.ticketId}
+                          </div>
+                          <div>
+                            <span className="font-medium">নাম:</span> {item.name}
+                          </div>
+                          <div>
+                            <span className="font-medium">মোবাইল:</span> {maskPhone(item.phone)}
+                          </div>
+                          <div>
+                            <span className="font-medium">রুট:</span> {ROUTE_TITLE}
+                          </div>
+                          <div>
+                            <span className="font-medium">সিট:</span> {item.seat}
                           </div>
                         </div>
                       </div>
@@ -608,26 +550,36 @@ export default function RMSTUBusApplicationPage() {
             {latestApplication && (
               <Card className="rounded-3xl border-0 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-xl">
+                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                     <ShieldCheck className="h-5 w-5" /> সদ্য করা আবেদন
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-3xl border border-dashed p-5">
-                    <div className="mb-4 flex items-center justify-between">
+                  <div className="rounded-3xl border border-dashed p-4 sm:p-5">
+                    <div className="mb-4 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-sm text-slate-500">Ticket ID</div>
-                        <div className="text-lg font-bold">{latestApplication.ticketId}</div>
+                        <div className="text-base font-bold sm:text-lg">{latestApplication.ticketId}</div>
                       </div>
                       <Badge className="rounded-full bg-slate-100 text-slate-700">Pending</Badge>
                     </div>
 
                     <div className="space-y-3 text-sm text-slate-700">
-                      <div className="flex items-center gap-2"><User className="h-4 w-4" /> {latestApplication.name}</div>
-                      <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> {latestApplication.phone}</div>
-                      <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {ROUTES[latestApplication.route].title}</div>
-                      <div className="flex items-center gap-2"><Bus className="h-4 w-4" /> Seat {latestApplication.seat}</div>
-                      <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4" /> এখন pending approval-এ আছে</div>
+                      <div className="flex items-center gap-2">
+                        <User className="h-4 w-4" /> {latestApplication.name}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-4 w-4" /> {latestApplication.phone}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" /> {ROUTE_TITLE}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Bus className="h-4 w-4" /> Seat {latestApplication.seat}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CalendarDays className="h-4 w-4" /> Pending approval
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -636,7 +588,7 @@ export default function RMSTUBusApplicationPage() {
 
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-xl">
+                <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                   <LayoutDashboard className="h-5 w-5" /> Admin Access
                 </CardTitle>
               </CardHeader>
@@ -644,13 +596,13 @@ export default function RMSTUBusApplicationPage() {
                 {!adminOpen ? (
                   <>
                     <Input
-                      className="rounded-2xl"
+                      className="h-11 rounded-2xl text-base"
                       type="password"
                       placeholder="Admin passcode"
                       value={adminPasscode}
                       onChange={(e) => setAdminPasscode(e.target.value)}
                     />
-                    <Button className="w-full rounded-2xl" onClick={handleAdminLogin}>
+                    <Button className="h-11 w-full rounded-2xl text-base" onClick={handleAdminLogin}>
                       Admin Panel Open
                     </Button>
                   </>
@@ -665,58 +617,46 @@ export default function RMSTUBusApplicationPage() {
             {adminOpen && (
               <Card className="rounded-3xl border-0 shadow-sm">
                 <CardHeader>
-                  <CardTitle className="text-xl">Admin Dashboard</CardTitle>
+                  <CardTitle className="text-lg sm:text-xl">Admin Dashboard</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-slate-50 p-3 text-center">
-                      <div className="text-xl font-bold">{pendingCount}</div>
+                      <div className="text-lg font-bold sm:text-xl">{pendingCount}</div>
                       <div className="text-xs text-slate-500">Pending</div>
                     </div>
                     <div className="rounded-2xl bg-emerald-50 p-3 text-center">
-                      <div className="text-xl font-bold">{approvedCount}</div>
+                      <div className="text-lg font-bold sm:text-xl">{approvedCount}</div>
                       <div className="text-xs text-slate-500">Approved</div>
                     </div>
                     <div className="rounded-2xl bg-rose-50 p-3 text-center">
-                      <div className="text-xl font-bold">{rejectedCount}</div>
+                      <div className="text-lg font-bold sm:text-xl">{rejectedCount}</div>
                       <div className="text-xs text-slate-500">Rejected</div>
                     </div>
                     <div className="rounded-2xl bg-amber-50 p-3 text-center">
-                      <div className="text-xl font-bold">{waitlistedCount}</div>
+                      <div className="text-lg font-bold sm:text-xl">{waitlistedCount}</div>
                       <div className="text-xs text-slate-500">Waitlisted</div>
                     </div>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <Select
-                      value={adminFilter}
-                      onValueChange={(value) => setAdminFilter(value as StatusType | "all")}
-                    >
-                      <SelectTrigger className="rounded-2xl">
-                        <SelectValue placeholder="Status filter" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">সব status</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="approved">Approved</SelectItem>
-                        <SelectItem value="rejected">Rejected</SelectItem>
-                        <SelectItem value="waitlisted">Waitlisted</SelectItem>
-                      </SelectContent>
-                    </Select>
-
-                    <Select
-                      value={adminRouteFilter}
-                      onValueChange={(value) => setAdminRouteFilter(value as RouteType | "all")}
-                    >
-                      <SelectTrigger className="rounded-2xl">
-                        <SelectValue placeholder="Route filter" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">সব route</SelectItem>
-                        <SelectItem value="oxygen">চট্টগ্রাম অক্সিজেন</SelectItem>
-                        <SelectItem value="khagrachhari">খাগড়াছড়ি</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid gap-3">
+                    <Badge className="w-fit rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                      Filter: {adminFilter}
+                    </Badge>
+                    <div className="flex flex-wrap gap-2">
+                      {(["all", "pending", "approved", "rejected", "waitlisted"] as const).map((status) => (
+                        <button
+                          key={status}
+                          type="button"
+                          onClick={() => setAdminFilter(status)}
+                          className={`rounded-full px-3 py-2 text-sm ${
+                            adminFilter === status ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                          }`}
+                        >
+                          {status}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
@@ -729,17 +669,24 @@ export default function RMSTUBusApplicationPage() {
                           </Badge>
                         </div>
 
-                        <div className="space-y-1">
-                          <div><span className="font-medium">Ticket ID:</span> {item.ticketId}</div>
-                          <div><span className="font-medium">Phone:</span> {item.phone}</div>
-                          <div><span className="font-medium">Route:</span> {ROUTES[item.route].title}</div>
-                          <div><span className="font-medium">Seat:</span> {item.seat}</div>
+                        <div className="space-y-1 leading-6">
                           <div>
-                            <span className="font-medium">Applied At:</span> {new Date(item.createdAt).toLocaleString()}
+                            <span className="font-medium">Ticket ID:</span> {item.ticketId}
+                          </div>
+                          <div>
+                            <span className="font-medium">Phone:</span> {item.phone}
+                          </div>
+                          <div>
+                            <span className="font-medium">Seat:</span> {item.seat}
+                          </div>
+                          <div>
+                            <span className="font-medium">Applied At:</span> {new Date(
+                              item.createdAt
+                            ).toLocaleString()}
                           </div>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-3 gap-2">
+                        <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
                           <Button
                             className="rounded-2xl"
                             disabled={adminBusyId === item.id || item.status === "approved"}
@@ -779,18 +726,16 @@ export default function RMSTUBusApplicationPage() {
 
             <Card className="rounded-3xl border-0 shadow-sm">
               <CardHeader>
-                <CardTitle className="text-xl">📌 গুরুত্বপূর্ণ নির্দেশনা</CardTitle>
+                <CardTitle className="text-lg sm:text-xl">গুরুত্বপূর্ণ নির্দেশনা</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm text-slate-600">
-                
-  <ol>
-  <li>Approved সিটে আর আবেদন করা যাবে না</li>
-  <li>Pending সিটে একাধিক আবেদন করা যাবে</li>
-  <li>আগে আবেদনকারীদের অগ্রাধিকার দেওয়া হবে</li>
-  <li>যোগাযোগ না হলে পরবর্তী আবেদনকারীর সাথে যোগাযোগ করা হবে</li>
-  <li>Approved হলে SMS/কলের মাধ্যমে জানানো হবে</li>
-   <li> for detail call-01643097477(Tasfique)</li>
-</ol>
+              <CardContent>
+                <ol className="list-decimal space-y-2 pl-5 text-sm leading-7 text-slate-700 sm:text-base">
+                  <li>Approved সিটে আর আবেদন করা যাবে না</li>
+                  <li>Pending সিটে একাধিক আবেদন করা যাবে</li>
+                  <li>আগে আবেদনকারীদের অগ্রাধিকার দেওয়া হবে</li>
+                  <li>যোগাযোগ না হলে পরবর্তী আবেদনকারীর সাথে যোগাযোগ করা হবে</li>
+                  <li>Approved হলে SMS/কলের মাধ্যমে জানানো হবে</li>
+                </ol>
               </CardContent>
             </Card>
           </div>
