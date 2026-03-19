@@ -119,24 +119,24 @@ export default function RMSTUBusApplicationPage() {
 
   const totalSeats = 28;
 
-  const approvedSeats = useMemo(() => {
+  const approvedSeatsForSelectedUnit = useMemo(() => {
     return applications
-      .filter((item) => item.status === "approved")
+      .filter((item) => item.status === "approved" && item.unit === unit)
       .map((item) => item.seat);
-  }, [applications]);
+  }, [applications, unit]);
 
-  const pendingCountsBySeat = useMemo(() => {
+  const waitingCountsBySeatForSelectedUnit = useMemo(() => {
     const map: Record<string, number> = {};
     applications
-      .filter((item) => item.status === "pending")
+      .filter((item) => item.status === "pending" && item.unit === unit)
       .forEach((item) => {
         map[item.seat] = (map[item.seat] || 0) + 1;
       });
     return map;
-  }, [applications]);
+  }, [applications, unit]);
 
   const approvedCount = applications.filter((item) => item.status === "approved").length;
-  const availableSeats = totalSeats - approvedCount;
+  const availableSeatsForSelectedUnit = totalSeats - approvedSeatsForSelectedUnit.length;
   const pendingCount = applications.filter((item) => item.status === "pending").length;
   const rejectedCount = applications.filter((item) => item.status === "rejected").length;
   const waitlistedCount = applications.filter((item) => item.status === "waitlisted").length;
@@ -144,6 +144,26 @@ export default function RMSTUBusApplicationPage() {
   const aUnitCount = applications.filter((item) => item.unit === "A Unit").length;
   const bUnitCount = applications.filter((item) => item.unit === "B Unit").length;
   const cUnitCount = applications.filter((item) => item.unit === "C Unit").length;
+
+  const aUnitApproved = applications.filter(
+    (item) => item.unit === "A Unit" && item.status === "approved"
+  ).length;
+  const bUnitApproved = applications.filter(
+    (item) => item.unit === "B Unit" && item.status === "approved"
+  ).length;
+  const cUnitApproved = applications.filter(
+    (item) => item.unit === "C Unit" && item.status === "approved"
+  ).length;
+
+  const aUnitWaiting = applications.filter(
+    (item) => item.unit === "A Unit" && item.status === "pending"
+  ).length;
+  const bUnitWaiting = applications.filter(
+    (item) => item.unit === "B Unit" && item.status === "pending"
+  ).length;
+  const cUnitWaiting = applications.filter(
+    (item) => item.unit === "C Unit" && item.status === "pending"
+  ).length;
 
   const adminApplications = applications.filter((item) => {
     if (adminFilter === "all") return true;
@@ -271,12 +291,13 @@ export default function RMSTUBusApplicationPage() {
         const approvedSeatQuery = query(
           collection(db, "applications"),
           where("seat", "==", application.seat),
+          where("unit", "==", application.unit),
           where("status", "==", "approved")
         );
         const approvedSeatSnapshot = await getDocs(approvedSeatQuery);
 
         if (!approvedSeatSnapshot.empty) {
-          setMessage("এই সিটে ইতোমধ্যে একজন approved হয়েছে।");
+          setMessage("এই ইউনিটের এই সিটে ইতোমধ্যে একজন approved হয়েছে।");
           setAdminBusyId("");
           return;
         }
@@ -298,14 +319,15 @@ export default function RMSTUBusApplicationPage() {
       await updateDoc(doc(db, "applications", application.id), { status: nextStatus });
 
       if (nextStatus === "approved") {
-        const sameSeatPending = applications.filter(
+        const sameSeatPendingSameUnit = applications.filter(
           (item) =>
             item.id !== application.id &&
             item.seat === application.seat &&
+            item.unit === application.unit &&
             item.status === "pending"
         );
 
-        for (const item of sameSeatPending) {
+        for (const item of sameSeatPendingSameUnit) {
           if (item.id) {
             await updateDoc(doc(db, "applications", item.id), { status: "rejected" });
           }
@@ -324,7 +346,7 @@ export default function RMSTUBusApplicationPage() {
     <div className="min-h-screen bg-[linear-gradient(180deg,#f3fbf5_0%,#ffffff_60%,#fff7f7_100%)] px-3 py-4 sm:px-4 md:px-6">
       <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
         <div className="overflow-hidden rounded-[28px] border border-green-100 bg-white shadow-[0_24px_70px_rgba(0,0,0,0.08)]">
-          <div className="relative p-5 text-white sm:p-6 bg-[linear-gradient(180deg,#0f8b46_0%,#169a4b_32%,#c84444_100%)]">
+          <div className="relative bg-[linear-gradient(180deg,#0f8b46_0%,#169a4b_32%,#c84444_100%)] p-5 text-white sm:p-6">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_center,rgba(255,255,255,0.16),transparent_30%),radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_40%)]" />
             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04)_0%,rgba(255,255,255,0)_35%,rgba(0,0,0,0.03)_100%)]" />
 
@@ -371,8 +393,8 @@ export default function RMSTUBusApplicationPage() {
                   <div className="text-[11px] text-white/85 sm:text-xs">Approved</div>
                 </div>
                 <div className="rounded-3xl border border-white/20 bg-white/10 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
-                  <div className="text-lg font-bold sm:text-xl">{availableSeats}</div>
-                  <div className="text-[11px] text-white/85 sm:text-xs">খালি সিট</div>
+                  <div className="text-lg font-bold sm:text-xl">{availableSeatsForSelectedUnit}</div>
+                  <div className="text-[11px] text-white/85 sm:text-xs">এই ইউনিটে খালি সিট</div>
                 </div>
               </div>
             </div>
@@ -445,7 +467,10 @@ export default function RMSTUBusApplicationPage() {
                       <button
                         key={item}
                         type="button"
-                        onClick={() => setUnit(item)}
+                        onClick={() => {
+                          setUnit(item);
+                          setSelectedSeat("");
+                        }}
                         className={`rounded-2xl border px-3 py-3 text-sm font-medium transition ${
                           unit === item
                             ? "border-red-600 bg-red-600 text-white shadow-sm"
@@ -459,9 +484,10 @@ export default function RMSTUBusApplicationPage() {
                 </div>
 
                 <div className="sm:col-span-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs leading-6 text-red-800 sm:text-sm">
-                  একই সিটের জন্য একাধিক আবেদন করা যাবে। কিন্তু যে সিট approved হয়ে যাবে, সেটাতে আর
-                  নতুন আবেদন করা যাবে না। A, B, C — তিনটি ইউনিটের শিক্ষার্থীদের জন্য বাস সুবিধা
-                  থাকবে।
+                  প্রতিটি ইউনিটের waiting এবং approved সিট আলাদা আলাদা গণনা করা হবে। অর্থাৎ A Unit,
+                  B Unit, C Unit — প্রত্যেক ইউনিটের জন্য seat waiting list এবং approval আলাদা থাকবে।
+                  সিটের উপরে <strong>W-1</strong>, <strong>W-2</strong> এভাবে দেখাবে, যা এই ইউনিটে
+                  ঐ সিটের waiting আবেদনকারীর সংখ্যা বোঝাবে।
                 </div>
               </CardContent>
             </Card>
@@ -482,8 +508,8 @@ export default function RMSTUBusApplicationPage() {
                     <div key={rowIndex} className="flex items-center justify-center gap-2 sm:gap-3">
                       {row.map((seat) => {
                         if (!seat) return <div key={`${rowIndex}-gap`} className="w-4 sm:w-6" />;
-                        const isApproved = approvedSeats.includes(seat);
-                        const pendingCountForSeat = pendingCountsBySeat[seat] || 0;
+                        const isApproved = approvedSeatsForSelectedUnit.includes(seat);
+                        const waitingCountForSeat = waitingCountsBySeatForSelectedUnit[seat] || 0;
                         const isSelected = selectedSeat === seat;
 
                         return (
@@ -497,15 +523,15 @@ export default function RMSTUBusApplicationPage() {
                                 ? "cursor-not-allowed border-red-200 bg-red-100 text-red-700"
                                 : isSelected
                                 ? "border-green-800 bg-green-700 text-white"
-                                : pendingCountForSeat > 0
+                                : waitingCountForSeat > 0
                                 ? "border-amber-200 bg-amber-100 text-amber-800 hover:bg-amber-200"
                                 : "border-green-200 bg-white text-green-800 hover:bg-green-50"
                             }`}
                           >
                             {seat}
-                            {pendingCountForSeat > 0 && !isApproved && (
-                              <span className="absolute -right-1 -top-1 rounded-full bg-red-600 px-1.5 text-[10px] text-white shadow">
-                                {pendingCountForSeat}
+                            {waitingCountForSeat > 0 && !isApproved && (
+                              <span className="absolute -right-1.5 -top-1.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[9px] font-bold text-white shadow">
+                                W-{waitingCountForSeat}
                               </span>
                             )}
                           </button>
@@ -523,7 +549,7 @@ export default function RMSTUBusApplicationPage() {
                     <span className="h-4 w-4 rounded bg-green-700" /> Selected
                   </div>
                   <div className="flex items-center gap-2 rounded-xl bg-amber-50 p-2">
-                    <span className="h-4 w-4 rounded bg-amber-200" /> Pending আবেদন আছে
+                    <span className="h-4 w-4 rounded bg-amber-200" /> Waiting আছে
                   </div>
                   <div className="flex items-center gap-2 rounded-xl bg-red-50 p-2">
                     <span className="h-4 w-4 rounded bg-red-200" /> Approved
@@ -739,14 +765,20 @@ export default function RMSTUBusApplicationPage() {
                     <div className="rounded-2xl border border-green-100 bg-white p-3 text-center">
                       <div className="text-lg font-bold text-green-800">{aUnitCount}</div>
                       <div className="text-xs text-slate-600">A Unit</div>
+                      <div className="mt-1 text-[11px] text-amber-700">W: {aUnitWaiting}</div>
+                      <div className="text-[11px] text-green-700">A: {aUnitApproved}</div>
                     </div>
                     <div className="rounded-2xl border border-green-100 bg-white p-3 text-center">
                       <div className="text-lg font-bold text-green-800">{bUnitCount}</div>
                       <div className="text-xs text-slate-600">B Unit</div>
+                      <div className="mt-1 text-[11px] text-amber-700">W: {bUnitWaiting}</div>
+                      <div className="text-[11px] text-green-700">A: {bUnitApproved}</div>
                     </div>
                     <div className="rounded-2xl border border-green-100 bg-white p-3 text-center">
                       <div className="text-lg font-bold text-green-800">{cUnitCount}</div>
                       <div className="text-xs text-slate-600">C Unit</div>
+                      <div className="mt-1 text-[11px] text-amber-700">W: {cUnitWaiting}</div>
+                      <div className="text-[11px] text-green-700">A: {cUnitApproved}</div>
                     </div>
                   </div>
 
@@ -853,7 +885,9 @@ export default function RMSTUBusApplicationPage() {
               <CardContent>
                 <ol className="list-decimal space-y-2 pl-5 text-sm leading-7 text-slate-700 sm:text-base">
                   <li>Approved সিটে আর আবেদন করা যাবে না</li>
-                  <li>Pending সিটে একাধিক আবেদন করা যাবে</li>
+                  <li>Waiting/Pending সিটে একাধিক আবেদন করা যাবে</li>
+                  <li>সিটের উপরে W-1, W-2 ইত্যাদি দেখানো হবে, যা waiting আবেদনকারীর সংখ্যা বোঝাবে</li>
+                  <li>A Unit, B Unit, C Unit — প্রতিটি ইউনিটের waiting এবং approved আলাদা</li>
                   <li>আগে আবেদনকারীদের অগ্রাধিকার দেওয়া হবে</li>
                   <li>যোগাযোগ না হলে পরবর্তী আবেদনকারীর সাথে যোগাযোগ করা হবে</li>
                   <li>Approved হলে SMS/কলের মাধ্যমে জানানো হবে</li>

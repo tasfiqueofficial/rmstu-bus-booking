@@ -13,8 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RMSTU JCD Bus Ticket Booking",
+  title: "RMSTU GST Chatrodol Bus Pass",
   description: "RMSTU GST Admission Bus Ticket Booking System",
+  icons: {
+    icon: "/icon.png",
+  },
 };
 
 export default function RootLayout({
