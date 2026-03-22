@@ -47,20 +47,26 @@ type Application = {
   createdAt: string;
 };
 
-const ROUTE_TITLE = "চট্টগ্রাম অক্সিজেন → রাঙামাটি";
+const ROUTE_TITLE = "চট্টগ্রাম অক্সিজেন → রাঙামাটি (RMSTU Campus)";
 const ROUTE_FROM = "চট্টগ্রাম অক্সিজেন";
 const ROUTE_TO = "রাঙামাটি";
 const ROUTE_TIME = "সকাল ৬:৩০ টা";
 const UNITS: UnitType[] = ["A Unit", "B Unit", "C Unit"];
 
-const seatLayout = [
-  ["A1", "A2", null, "A3", "A4"],
-  ["B1", "B2", null, "B3", "B4"],
-  ["C1", "C2", null, "C3", "C4"],
-  ["D1", "D2", null, "D3", "D4"],
-  ["E1", "E2", null, "E3", "E4"],
-  ["F1", "F2", null, "F3", "F4"],
-  ["G1", "G2", null, "G3", "G4"],
+// 38 seats total
+// 9 full rows x 4 seats = 36
+// last row = 2 seats
+const seatLayout: (string | null)[][] = [
+  ["A1", "A2", null, null,"A3", "A4"],
+  ["B1", "B2", null, null,"B3", "B4"],
+  ["C1", "C2", null, null,"C3", "C4"],
+  ["D1", "D2", null, null,"D3", "D4"],
+  ["E1", "E2", null, null,"E3", "E4"],
+  ["F1", "F2", null, null,"F3", "F4"],
+  ["G1", "G2", null, null,"G3", "G4"],
+  ["H1", "H2", null, null,"H3", "H4"],
+  ["I1", "I2", "J1","J2", "I3", "I4"],
+  //[null, "J1", "J2", null, null],
 ];
 
 const ADMIN_PASSCODE = "rmstu-admin-2026";
@@ -117,7 +123,10 @@ export default function RMSTUBusApplicationPage() {
     return () => unsub();
   }, []);
 
-  const totalSeats = 28;
+  const totalSeats = useMemo(
+    () => seatLayout.flat().filter((seat) => seat !== null).length,
+    []
+  );
 
   const approvedSeatsForSelectedUnit = useMemo(() => {
     return applications
@@ -381,7 +390,7 @@ export default function RMSTUBusApplicationPage() {
 
               <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4">
                 <div className="rounded-3xl border border-white/20 bg-white/10 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
-                  <div className="text-lg font-bold sm:text-xl">28</div>
+                  <div className="text-lg font-bold sm:text-xl">{totalSeats}</div>
                   <div className="text-[11px] text-white/85 sm:text-xs">মোট সিট</div>
                 </div>
                 <div className="rounded-3xl border border-white/20 bg-white/10 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
@@ -506,8 +515,10 @@ export default function RMSTUBusApplicationPage() {
                 <div className="space-y-2 sm:space-y-3">
                   {seatLayout.map((row, rowIndex) => (
                     <div key={rowIndex} className="flex items-center justify-center gap-2 sm:gap-3">
-                      {row.map((seat) => {
-                        if (!seat) return <div key={`${rowIndex}-gap`} className="w-4 sm:w-6" />;
+                      {row.map((seat, seatIndex) => {
+                        if (!seat) {
+                          return <div key={`${rowIndex}-${seatIndex}-gap`} className="w-4 sm:w-6" />;
+                        }
                         const isApproved = approvedSeatsForSelectedUnit.includes(seat);
                         const waitingCountForSeat = waitingCountsBySeatForSelectedUnit[seat] || 0;
                         const isSelected = selectedSeat === seat;
