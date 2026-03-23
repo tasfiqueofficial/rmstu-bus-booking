@@ -524,9 +524,10 @@ export default function RMSTUBusApplicationPage() {
                 </div>
 
                 <div className="sm:col-span-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs leading-6 text-red-800 sm:text-sm">
-                  প্রতিটি ইউনিটের waiting এবং approved সিট আলাদা আলাদা গণনা করা হবে। একই মোবাইল
-                  নম্বর দিয়ে সর্বোচ্চ <strong>৩টি</strong> আবেদন করা যাবে। একই নাম্বার দিয়ে আলাদা
-                  আলাদা সময়ে, আলাদা আলাদা নাম ব্যবহার করে আবেদন করতে হবে।
+                  প্রতিটি ইউনিটের waiting এবং approved সিট আলাদা আলাদা গণনা করা হবে। অর্থাৎ A Unit,
+                  B Unit, C Unit — প্রত্যেক ইউনিটের জন্য seat waiting list এবং approval আলাদা থাকবে।
+                  সিটের উপরে <strong>W-1</strong>, <strong>W-2</strong> এভাবে দেখাবে, যা এই ইউনিটে
+                  ঐ সিটের waiting আবেদনকারীর সংখ্যা বোঝাবে।
                 </div>
               </CardContent>
             </Card>
