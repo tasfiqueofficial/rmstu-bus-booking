@@ -31,10 +31,13 @@ import {
   Clock3,
   LayoutDashboard,
   GraduationCap,
+  LocateFixed,
+  Flag,
 } from "lucide-react";
 
 type StatusType = "pending" | "approved" | "rejected" | "waitlisted";
 type UnitType = "A Unit" | "B Unit" | "C Unit";
+type TravelUpdateType = "none" | "departing" | "arriving";
 
 type Application = {
   id?: string;
@@ -45,6 +48,8 @@ type Application = {
   unit: UnitType;
   status: StatusType;
   createdAt: string;
+  travelUpdate?: TravelUpdateType;
+  travelUpdatedAt?: string | null;
 };
 
 const ROUTE_TITLE = "চট্টগ্রাম অক্সিজেন → রাঙামাটি";
@@ -95,6 +100,27 @@ function statusClass(status: StatusType) {
     return "bg-amber-100 text-amber-700 border border-amber-200";
   }
   return "bg-white text-green-800 border border-green-200";
+}
+
+function travelUpdateText(update?: TravelUpdateType) {
+  if (update === "departing") return "Departing";
+  if (update === "arriving") return "Arriving";
+  return "No update";
+}
+
+function travelUpdateClass(update?: TravelUpdateType) {
+  if (update === "departing") {
+    return "bg-sky-100 text-sky-800 border border-sky-200";
+  }
+  if (update === "arriving") {
+    return "bg-violet-100 text-violet-800 border border-violet-200";
+  }
+  return "bg-slate-100 text-slate-700 border border-slate-200";
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "No update";
+  return new Date(value).toLocaleString();
 }
 
 export default function RMSTUBusApplicationPage() {
@@ -276,6 +302,8 @@ export default function RMSTUBusApplicationPage() {
         unit,
         status: "pending",
         createdAt: new Date().toISOString(),
+        travelUpdate: "none",
+        travelUpdatedAt: null,
       };
 
       await addDoc(collection(db, "applications"), application);
@@ -286,7 +314,8 @@ export default function RMSTUBusApplicationPage() {
       setName("");
       setPhone("");
       setUnit("A Unit");
-    } catch {
+    } catch (error) {
+      console.error(error);
       setMessage("কোনো সমস্যা হয়েছে। আবার চেষ্টা করুন।");
     } finally {
       setIsSubmitting(false);
@@ -327,6 +356,7 @@ export default function RMSTUBusApplicationPage() {
 
   const updateStatus = async (application: Application, nextStatus: StatusType) => {
     if (!application.id) return;
+
     setAdminBusyId(application.id);
     setMessage("");
 
@@ -379,8 +409,33 @@ export default function RMSTUBusApplicationPage() {
       }
 
       setMessage("Status update সফল হয়েছে।");
-    } catch {
+    } catch (error) {
+      console.error(error);
       setMessage("Status update করা যায়নি।");
+    } finally {
+      setAdminBusyId("");
+    }
+  };
+
+  const updateTravelStatus = async (
+    application: Application,
+    nextTravelUpdate: TravelUpdateType
+  ) => {
+    if (!application.id) return;
+
+    setAdminBusyId(application.id);
+    setMessage("");
+
+    try {
+      await updateDoc(doc(db, "applications", application.id), {
+        travelUpdate: nextTravelUpdate,
+        travelUpdatedAt: new Date().toISOString(),
+      });
+
+      setMessage("Travel update সফল হয়েছে।");
+    } catch (error) {
+      console.error(error);
+      setMessage("Travel update করা যায়নি।");
     } finally {
       setAdminBusyId("");
     }
@@ -683,6 +738,7 @@ export default function RMSTUBusApplicationPage() {
                             {statusBadgeText(item.status)}
                           </Badge>
                         </div>
+
                         <div className="space-y-1 text-slate-700">
                           <div>
                             <span className="font-medium">টিকেট আইডি:</span> {item.ticketId}
@@ -701,6 +757,16 @@ export default function RMSTUBusApplicationPage() {
                           </div>
                           <div>
                             <span className="font-medium">সিট:</span> {item.seat}
+                          </div>
+                          <div className="pt-2">
+                            <span className="font-medium">Travel Update:</span>{" "}
+                            <Badge className={`ml-2 rounded-full ${travelUpdateClass(item.travelUpdate)}`}>
+                              {travelUpdateText(item.travelUpdate)}
+                            </Badge>
+                          </div>
+                          <div>
+                            <span className="font-medium">Update Time:</span>{" "}
+                            {formatDateTime(item.travelUpdatedAt)}
                           </div>
                         </div>
                       </div>
@@ -749,6 +815,9 @@ export default function RMSTUBusApplicationPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 text-red-600" /> Pending approval
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock3 className="h-4 w-4 text-slate-600" /> No update
                       </div>
                     </div>
                   </div>
@@ -924,9 +993,14 @@ export default function RMSTUBusApplicationPage() {
                       >
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <div className="font-semibold text-green-900">{item.name}</div>
-                          <Badge className={`rounded-full ${statusClass(item.status)}`}>
-                            {statusBadgeText(item.status)}
-                          </Badge>
+                          <div className="flex flex-wrap gap-2">
+                            <Badge className={`rounded-full ${statusClass(item.status)}`}>
+                              {statusBadgeText(item.status)}
+                            </Badge>
+                            <Badge className={`rounded-full ${travelUpdateClass(item.travelUpdate)}`}>
+                              {travelUpdateText(item.travelUpdate)}
+                            </Badge>
+                          </div>
                         </div>
 
                         <div className="space-y-1 leading-6">
@@ -946,6 +1020,10 @@ export default function RMSTUBusApplicationPage() {
                             <span className="font-medium">Applied At:</span>{" "}
                             {new Date(item.createdAt).toLocaleString()}
                           </div>
+                          <div>
+                            <span className="font-medium">Travel Update Time:</span>{" "}
+                            {formatDateTime(item.travelUpdatedAt)}
+                          </div>
                         </div>
 
                         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -956,6 +1034,7 @@ export default function RMSTUBusApplicationPage() {
                           >
                             <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
                           </Button>
+
                           <Button
                             variant="outline"
                             className="rounded-2xl border-amber-300 text-amber-700 hover:bg-amber-50"
@@ -964,6 +1043,7 @@ export default function RMSTUBusApplicationPage() {
                           >
                             <Clock3 className="mr-1 h-4 w-4" /> Waitlist
                           </Button>
+
                           <Button
                             variant="outline"
                             className="rounded-2xl border-red-300 text-red-700 hover:bg-red-50"
@@ -973,6 +1053,28 @@ export default function RMSTUBusApplicationPage() {
                             <XCircle className="mr-1 h-4 w-4" /> Reject
                           </Button>
                         </div>
+
+                        {item.status === "approved" && (
+                          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <Button
+                              variant="outline"
+                              className="rounded-2xl border-sky-300 text-sky-700 hover:bg-sky-50"
+                              disabled={adminBusyId === item.id}
+                              onClick={() => updateTravelStatus(item, "departing")}
+                            >
+                              <LocateFixed className="mr-1 h-4 w-4" /> Mark Departing
+                            </Button>
+
+                            <Button
+                              variant="outline"
+                              className="rounded-2xl border-violet-300 text-violet-700 hover:bg-violet-50"
+                              disabled={adminBusyId === item.id}
+                              onClick={() => updateTravelStatus(item, "arriving")}
+                            >
+                              <Flag className="mr-1 h-4 w-4" /> Mark Arriving
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ))}
 
@@ -1000,8 +1102,8 @@ export default function RMSTUBusApplicationPage() {
                   <li>A Unit, B Unit, C Unit — প্রতিটি ইউনিটের waiting এবং approved আলাদা</li>
                   <li>একই মোবাইল নম্বর দিয়ে সর্বোচ্চ ৩টি আবেদন করা যাবে</li>
                   <li>একই নাম্বার দিয়ে আলাদা আলাদা সময়ে, আলাদা আলাদা নাম দিয়ে আবেদন করতে হবে</li>
-                  <li>আগে আবেদনকারীদের অগ্রাধিকার দেওয়া হবে</li>
-                  <li>যোগাযোগ না হলে পরবর্তী আবেদনকারীর সাথে যোগাযোগ করা হবে</li>
+                  <li>যাত্রা শুরু হলে admin panel থেকে Departing update করা যাবে</li>
+                  <li>গন্তব্যে পৌঁছালে admin panel থেকে Arriving update করা যাবে</li>
                   <li>Approved হলে SMS/কলের মাধ্যমে জানানো হবে</li>
                 </ol>
               </CardContent>
