@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { db } from "@/lib/firebase";
 import {
   addDoc,
   collection,
   doc,
   getDocs,
-  onSnapshot,
   query,
   updateDoc,
   where,
@@ -33,6 +32,7 @@ import {
   GraduationCap,
   LocateFixed,
   Flag,
+  RefreshCw,
 } from "lucide-react";
 
 type StatusType = "pending" | "approved" | "rejected" | "waitlisted";
@@ -134,6 +134,7 @@ export default function RMSTUBusApplicationPage() {
   const [searchValue, setSearchValue] = useState("");
   const [searchResults, setSearchResults] = useState<Application[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
 
   const [adminPasscode, setAdminPasscode] = useState("");
   const [adminOpen, setAdminOpen] = useState(false);
@@ -142,16 +143,26 @@ export default function RMSTUBusApplicationPage() {
   const [adminUnitFilter, setAdminUnitFilter] = useState<UnitType | "all">("all");
   const [adminSeatSearch, setAdminSeatSearch] = useState("");
 
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "applications"), (snapshot) => {
+  const loadApplications = useCallback(async () => {
+    setIsLoadingData(true);
+    try {
+      const snapshot = await getDocs(collection(db, "applications"));
       const data = snapshot.docs
         .map((item) => ({ id: item.id, ...(item.data() as Application) }))
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-      setApplications(data);
-    });
 
-    return () => unsub();
+      setApplications(data);
+    } catch (error) {
+      console.error(error);
+      setMessage("Data load করা যায়নি। একটু পরে আবার চেষ্টা করুন।");
+    } finally {
+      setIsLoadingData(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]);
 
   const totalSeats = useMemo(() => ALL_SEATS.length, []);
 
@@ -314,6 +325,7 @@ export default function RMSTUBusApplicationPage() {
       setName("");
       setPhone("");
       setUnit("A Unit");
+      await loadApplications();
     } catch (error) {
       console.error(error);
       setMessage("কোনো সমস্যা হয়েছে। আবার চেষ্টা করুন।");
@@ -322,7 +334,7 @@ export default function RMSTUBusApplicationPage() {
     }
   };
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     setMessage("");
     const value = searchValue.trim().toLowerCase();
 
@@ -332,17 +344,42 @@ export default function RMSTUBusApplicationPage() {
       return;
     }
 
-    const found = applications.filter(
-      (item) => item.ticketId.toLowerCase() === value || item.phone.toLowerCase() === value
-    );
+    try {
+      let found: Application[] = [];
 
-    if (found.length === 0) {
+      if (/^01\d{9}$/.test(value)) {
+        const phoneQuery = query(collection(db, "applications"), where("phone", "==", value));
+        const phoneSnapshot = await getDocs(phoneQuery);
+        found = phoneSnapshot.docs.map((item) => ({
+          id: item.id,
+          ...(item.data() as Application),
+        }));
+      } else {
+        const ticketQuery = query(
+          collection(db, "applications"),
+          where("ticketId", "==", value.toUpperCase())
+        );
+        const ticketSnapshot = await getDocs(ticketQuery);
+        found = ticketSnapshot.docs.map((item) => ({
+          id: item.id,
+          ...(item.data() as Application),
+        }));
+      }
+
+      found.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      if (found.length === 0) {
+        setSearchResults([]);
+        setMessage("কোনো আবেদন পাওয়া যায়নি।");
+        return;
+      }
+
+      setSearchResults(found);
+    } catch (error) {
+      console.error(error);
       setSearchResults([]);
-      setMessage("কোনো আবেদন পাওয়া যায়নি।");
-      return;
+      setMessage("Search করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।");
     }
-
-    setSearchResults(found);
   };
 
   const handleAdminLogin = () => {
@@ -370,7 +407,9 @@ export default function RMSTUBusApplicationPage() {
         );
         const approvedSeatSnapshot = await getDocs(approvedSeatQuery);
 
-        if (!approvedSeatSnapshot.empty) {
+        const hasOtherApproved = approvedSeatSnapshot.docs.some((docItem) => docItem.id !== application.id);
+
+        if (hasOtherApproved) {
           setMessage("এই ইউনিটের এই সিটে ইতোমধ্যে একজন approved হয়েছে।");
           setAdminBusyId("");
           return;
@@ -383,7 +422,11 @@ export default function RMSTUBusApplicationPage() {
         );
         const approvedPhoneSnapshot = await getDocs(approvedPhoneQuery);
 
-        if (!approvedPhoneSnapshot.empty) {
+        const hasOtherPhoneApproved = approvedPhoneSnapshot.docs.some(
+          (docItem) => docItem.id !== application.id
+        );
+
+        if (hasOtherPhoneApproved) {
           setMessage("এই মোবাইল নম্বরে ইতোমধ্যে একটি approved ticket আছে।");
           setAdminBusyId("");
           return;
@@ -409,6 +452,7 @@ export default function RMSTUBusApplicationPage() {
       }
 
       setMessage("Status update সফল হয়েছে।");
+      await loadApplications();
     } catch (error) {
       console.error(error);
       setMessage("Status update করা যায়নি।");
@@ -433,6 +477,7 @@ export default function RMSTUBusApplicationPage() {
       });
 
       setMessage("Travel update সফল হয়েছে।");
+      await loadApplications();
     } catch (error) {
       console.error(error);
       setMessage("Travel update করা যায়নি।");
@@ -444,6 +489,19 @@ export default function RMSTUBusApplicationPage() {
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f3fbf5_0%,#ffffff_60%,#fff7f7_100%)] px-3 py-4 sm:px-4 md:px-6">
       <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loadApplications}
+            disabled={isLoadingData}
+            className="rounded-2xl border-green-200 text-green-800"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isLoadingData ? "animate-spin" : ""}`} />
+            {isLoadingData ? "Refreshing..." : "Refresh Data"}
+          </Button>
+        </div>
+
         <div className="overflow-hidden rounded-[28px] border border-green-100 bg-white shadow-[0_24px_70px_rgba(0,0,0,0.08)]">
           <div className="relative bg-[linear-gradient(180deg,#0f8b46_0%,#169a4b_32%,#c84444_100%)] p-5 text-white sm:p-6">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_center,rgba(255,255,255,0.16),transparent_30%),radial-gradient(circle_at_center,rgba(255,255,255,0.05),transparent_40%)]" />
@@ -592,9 +650,10 @@ export default function RMSTUBusApplicationPage() {
 
                 <div className="sm:col-span-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs leading-6 text-red-800 sm:text-sm">
                   প্রতিটি ইউনিটের waiting এবং approved সিট আলাদা আলাদা গণনা করা হবে। অর্থাৎ A Unit,
-                  B Unit, C Unit — প্রত্যেক ইউনিটের জন্য seat waiting list এবং approval আলাদা থাকবে।
-                  সিটের উপরে <strong>W-1</strong>, <strong>W-2</strong> এভাবে দেখাবে, যা এই ইউনিটে
-                  ঐ সিটের waiting আবেদনকারীর সংখ্যা বোঝাবে।
+                 B Unit, C Unit — প্রত্যেক ইউনিটের জন্য seat waiting list এবং approval আলাদা থাকবে।
+                 সিটের উপরে <strong>W-1</strong>, <strong>W-2</strong> এভাবে দেখাবে, যা এই ইউনিটে
+                 ঐ সিটের waiting আবেদনকারীর সংখ্যা বোঝাবে।
+
                 </div>
               </CardContent>
             </Card>
