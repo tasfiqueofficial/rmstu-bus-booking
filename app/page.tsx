@@ -54,16 +54,15 @@ const ROUTE_TIME = "সকাল ৬:৩০ টা";
 const UNITS: UnitType[] = ["A Unit", "B Unit", "C Unit"];
 
 const seatLayout: (string | null)[][] = [
-  ["A1", "A2",null, null,null,null, "A3", "A4"],
-  ["B1", "B2",null, null,null,null, "B3", "B4"],
-  ["C1", "C2",null, null,null,null, "C3", "C4"],
-  ["D1", "D2",null, null,null ,null,"D3", "D4"],
-  ["E1", "E2",null, null,null ,null,"E3", "E4"],
-  ["F1", "F2",null, null,null,null, "F3", "F4"],
-  ["G1", "G2",null, null,null,null,"G3", "G4"],
-  ["H1", "H2",null, null,null ,null,"H3", "H4"],
-  ["I1", "I2", "J1","J2","I3", "I4"],
-  //[null, null, "J1", "J2", null,null],,
+  ["A1", "A2", null, null, null, null, "A3", "A4"],
+  ["B1", "B2", null, null, null, null, "B3", "B4"],
+  ["C1", "C2", null, null, null, null, "C3", "C4"],
+  ["D1", "D2", null, null, null, null, "D3", "D4"],
+  ["E1", "E2", null, null, null, null, "E3", "E4"],
+  ["F1", "F2", null, null, null, null, "F3", "F4"],
+  ["G1", "G2", null, null, null, null, "G3", "G4"],
+  ["H1", "H2", null, null, null, null, "H3", "H4"],
+  ["I1", "I2", "J1", "J2", "I3", "I4"],
 ];
 
 const ALL_SEATS = seatLayout.flat().filter(Boolean) as string[];
@@ -148,7 +147,12 @@ export default function RMSTUBusApplicationPage() {
 
   const approvedCount = applications.filter((item) => item.status === "approved").length;
   const availableSeatsForSelectedUnit = totalSeats - approvedSeatsForSelectedUnit.length;
+
   const pendingCount = applications.filter((item) => item.status === "pending").length;
+  const pendingCountForSelectedUnit = applications.filter(
+    (item) => item.status === "pending" && item.unit === unit
+  ).length;
+
   const rejectedCount = applications.filter((item) => item.status === "rejected").length;
   const waitlistedCount = applications.filter((item) => item.status === "waitlisted").length;
 
@@ -419,19 +423,27 @@ export default function RMSTUBusApplicationPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-5">
                 <div className="rounded-3xl border border-white/20 bg-white/10 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
                   <div className="text-lg font-bold sm:text-xl">{totalSeats}</div>
                   <div className="text-[11px] text-white/85 sm:text-xs">মোট সিট</div>
                 </div>
+
+                <div className="rounded-3xl border border-white/20 bg-white/10 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
+                  <div className="text-lg font-bold sm:text-xl">{pendingCountForSelectedUnit}</div>
+                  <div className="text-[11px] text-white/85 sm:text-xs">{unit} Pending</div>
+                </div>
+
                 <div className="rounded-3xl border border-white/20 bg-white/10 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
                   <div className="text-lg font-bold sm:text-xl">{pendingCount}</div>
-                  <div className="text-[11px] text-white/85 sm:text-xs">Pending</div>
+                  <div className="text-[11px] text-white/85 sm:text-xs">Total Pending</div>
                 </div>
+
                 <div className="rounded-3xl border border-white/20 bg-white/10 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
                   <div className="text-lg font-bold sm:text-xl">{approvedCount}</div>
                   <div className="text-[11px] text-white/85 sm:text-xs">Approved</div>
                 </div>
+
                 <div className="rounded-3xl border border-white/20 bg-white/10 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
                   <div className="text-lg font-bold sm:text-xl">{availableSeatsForSelectedUnit}</div>
                   <div className="text-[11px] text-white/85 sm:text-xs">এই ইউনিটে খালি সিট</div>
