@@ -47,33 +47,35 @@ type Application = {
   createdAt: string;
 };
 
-const ROUTE_TITLE = "চট্টগ্রাম অক্সিজেন → রাঙামাটি (RMSTU Campus)";
+const ROUTE_TITLE = "চট্টগ্রাম অক্সিজেন → রাঙামাটি";
 const ROUTE_FROM = "চট্টগ্রাম অক্সিজেন";
 const ROUTE_TO = "রাঙামাটি";
 const ROUTE_TIME = "সকাল ৬:৩০ টা";
 const UNITS: UnitType[] = ["A Unit", "B Unit", "C Unit"];
 
-// 38 seats total
-// 9 full rows x 4 seats = 36
-// last row = 2 seats
 const seatLayout: (string | null)[][] = [
-  ["A1", "A2", null, null,"A3", "A4"],
-  ["B1", "B2", null, null,"B3", "B4"],
-  ["C1", "C2", null, null,"C3", "C4"],
-  ["D1", "D2", null, null,"D3", "D4"],
-  ["E1", "E2", null, null,"E3", "E4"],
-  ["F1", "F2", null, null,"F3", "F4"],
-  ["G1", "G2", null, null,"G3", "G4"],
-  ["H1", "H2", null, null,"H3", "H4"],
-  ["I1", "I2", "J1","J2", "I3", "I4"],
-  //[null, "J1", "J2", null, null],
+  ["A1", "A2",null, null,null,null, "A3", "A4"],
+  ["B1", "B2",null, null,null,null, "B3", "B4"],
+  ["C1", "C2",null, null,null,null, "C3", "C4"],
+  ["D1", "D2",null, null,null ,null,"D3", "D4"],
+  ["E1", "E2",null, null,null ,null,"E3", "E4"],
+  ["F1", "F2",null, null,null,null, "F3", "F4"],
+  ["G1", "G2",null, null,null,null,"G3", "G4"],
+  ["H1", "H2",null, null,null ,null,"H3", "H4"],
+  ["I1", "I2", "J1","J2","I3", "I4"],
+  //[null, null, "J1", "J2", null,null],,
 ];
 
+const ALL_SEATS = seatLayout.flat().filter(Boolean) as string[];
 const ADMIN_PASSCODE = "rmstu-admin-2026";
 
 function maskPhone(phone: string) {
   if (phone.length < 11) return phone;
   return `${phone.slice(0, 3)}*****${phone.slice(-3)}`;
+}
+
+function normalizeName(name: string) {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function statusBadgeText(status: StatusType) {
@@ -107,10 +109,13 @@ export default function RMSTUBusApplicationPage() {
   const [searchValue, setSearchValue] = useState("");
   const [searchResults, setSearchResults] = useState<Application[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [adminPasscode, setAdminPasscode] = useState("");
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminFilter, setAdminFilter] = useState<StatusType | "all">("pending");
   const [adminBusyId, setAdminBusyId] = useState("");
+  const [adminUnitFilter, setAdminUnitFilter] = useState<UnitType | "all">("all");
+  const [adminSeatSearch, setAdminSeatSearch] = useState("");
 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "applications"), (snapshot) => {
@@ -123,10 +128,7 @@ export default function RMSTUBusApplicationPage() {
     return () => unsub();
   }, []);
 
-  const totalSeats = useMemo(
-    () => seatLayout.flat().filter((seat) => seat !== null).length,
-    []
-  );
+  const totalSeats = useMemo(() => ALL_SEATS.length, []);
 
   const approvedSeatsForSelectedUnit = useMemo(() => {
     return applications
@@ -175,8 +177,13 @@ export default function RMSTUBusApplicationPage() {
   ).length;
 
   const adminApplications = applications.filter((item) => {
-    if (adminFilter === "all") return true;
-    return item.status === adminFilter;
+    const statusOk = adminFilter === "all" ? true : item.status === adminFilter;
+    const unitOk = adminUnitFilter === "all" ? true : item.unit === adminUnitFilter;
+    const seatOk = adminSeatSearch.trim()
+      ? item.seat.toLowerCase() === adminSeatSearch.trim().toLowerCase()
+      : true;
+
+    return statusOk && unitOk && seatOk;
   });
 
   const generateTicketId = () => {
@@ -191,6 +198,7 @@ export default function RMSTUBusApplicationPage() {
 
     const cleanName = name.trim();
     const cleanPhone = phone.trim();
+    const normalizedIncomingName = normalizeName(cleanName);
 
     if (!cleanName || !cleanPhone) {
       setMessage("নাম এবং মোবাইল নম্বর দিন।");
@@ -219,6 +227,29 @@ export default function RMSTUBusApplicationPage() {
 
       if (!approvedPhoneSnapshot.empty) {
         setMessage("এই মোবাইল নম্বরে ইতোমধ্যে একটি approved ticket আছে।");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const samePhoneQuery = query(
+        collection(db, "applications"),
+        where("phone", "==", cleanPhone)
+      );
+      const samePhoneSnapshot = await getDocs(samePhoneQuery);
+      const samePhoneApplications = samePhoneSnapshot.docs.map((d) => d.data() as Application);
+
+      if (samePhoneApplications.length >= 3) {
+        setMessage("একই মোবাইল নম্বর দিয়ে সর্বোচ্চ ৩টি আবেদন করা যাবে।");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const duplicateSameName = samePhoneApplications.some(
+        (item) => normalizeName(item.name) === normalizedIncomingName
+      );
+
+      if (duplicateSameName) {
+        setMessage("একই মোবাইল নম্বর দিয়ে একই নাম ব্যবহার করে আবার আবেদন করা যাবে না।");
         setIsSubmitting(false);
         return;
       }
@@ -493,10 +524,9 @@ export default function RMSTUBusApplicationPage() {
                 </div>
 
                 <div className="sm:col-span-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs leading-6 text-red-800 sm:text-sm">
-                  প্রতিটি ইউনিটের waiting এবং approved সিট আলাদা আলাদা গণনা করা হবে। অর্থাৎ A Unit,
-                  B Unit, C Unit — প্রত্যেক ইউনিটের জন্য seat waiting list এবং approval আলাদা থাকবে।
-                  সিটের উপরে <strong>W-1</strong>, <strong>W-2</strong> এভাবে দেখাবে, যা এই ইউনিটে
-                  ঐ সিটের waiting আবেদনকারীর সংখ্যা বোঝাবে।
+                  প্রতিটি ইউনিটের waiting এবং approved সিট আলাদা আলাদা গণনা করা হবে। একই মোবাইল
+                  নম্বর দিয়ে সর্বোচ্চ <strong>৩টি</strong> আবেদন করা যাবে। একই নাম্বার দিয়ে আলাদা
+                  আলাদা সময়ে, আলাদা আলাদা নাম ব্যবহার করে আবেদন করতে হবে।
                 </div>
               </CardContent>
             </Card>
@@ -793,10 +823,66 @@ export default function RMSTUBusApplicationPage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3">
-                    <Badge className="w-fit rounded-full border border-green-200 bg-green-50 px-3 py-1 text-green-800">
-                      Filter: {adminFilter}
-                    </Badge>
+                  <div className="grid gap-3 rounded-2xl border border-green-100 bg-green-50/60 p-4">
+                    <div className="text-sm font-semibold text-green-900">
+                      ইউনিট ও সিট দিয়ে সার্চ করুন
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label className="text-green-900">Unit filter</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setAdminUnitFilter("all")}
+                            className={`rounded-xl border px-3 py-2 text-sm ${
+                              adminUnitFilter === "all"
+                                ? "bg-red-600 text-white border-red-600"
+                                : "bg-white text-green-800 border-green-200"
+                            }`}
+                          >
+                            All
+                          </button>
+                          {UNITS.map((item) => (
+                            <button
+                              key={item}
+                              type="button"
+                              onClick={() => setAdminUnitFilter(item)}
+                              className={`rounded-xl border px-3 py-2 text-sm ${
+                                adminUnitFilter === item
+                                  ? "bg-red-600 text-white border-red-600"
+                                  : "bg-white text-green-800 border-green-200"
+                              }`}
+                            >
+                              {item}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-green-900">Seat search</Label>
+                        <Input
+                          value={adminSeatSearch}
+                          onChange={(e) => setAdminSeatSearch(e.target.value)}
+                          placeholder="যেমন A1 / H4 / J2"
+                          className="h-11 rounded-2xl border-green-200 text-base focus-visible:ring-green-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <Badge className="w-fit rounded-full border border-green-200 bg-white px-3 py-1 text-green-800">
+                        Status: {adminFilter}
+                      </Badge>
+                      <Badge className="w-fit rounded-full border border-green-200 bg-white px-3 py-1 text-green-800">
+                        Unit: {adminUnitFilter}
+                      </Badge>
+                      <Badge className="w-fit rounded-full border border-green-200 bg-white px-3 py-1 text-green-800">
+                        Seat: {adminSeatSearch.trim() || "all"}
+                      </Badge>
+                    </div>
+
                     <div className="flex flex-wrap gap-2">
                       {(["all", "pending", "approved", "rejected", "waitlisted"] as const).map(
                         (status) => (
@@ -899,6 +985,8 @@ export default function RMSTUBusApplicationPage() {
                   <li>Waiting/Pending সিটে একাধিক আবেদন করা যাবে</li>
                   <li>সিটের উপরে W-1, W-2 ইত্যাদি দেখানো হবে, যা waiting আবেদনকারীর সংখ্যা বোঝাবে</li>
                   <li>A Unit, B Unit, C Unit — প্রতিটি ইউনিটের waiting এবং approved আলাদা</li>
+                  <li>একই মোবাইল নম্বর দিয়ে সর্বোচ্চ ৩টি আবেদন করা যাবে</li>
+                  <li>একই নাম্বার দিয়ে আলাদা আলাদা সময়ে, আলাদা আলাদা নাম দিয়ে আবেদন করতে হবে</li>
                   <li>আগে আবেদনকারীদের অগ্রাধিকার দেওয়া হবে</li>
                   <li>যোগাযোগ না হলে পরবর্তী আবেদনকারীর সাথে যোগাযোগ করা হবে</li>
                   <li>Approved হলে SMS/কলের মাধ্যমে জানানো হবে</li>
