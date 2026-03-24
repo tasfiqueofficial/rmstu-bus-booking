@@ -169,6 +169,34 @@ export default function RMSTUBusApplicationPage() {
     loadApplications();
   }, [loadApplications]);
 
+  const getUpdatedLatestApplication = () => {
+    if (!latestApplication) return null;
+    const updated = applications.find((item) => item.ticketId === latestApplication.ticketId);
+    return updated || latestApplication;
+  };
+
+  const getWaitingSerial = (application: Application) => {
+    // এই সিটে যত জন apply করেছে সব, সময় অনুযায়ী সাজানো
+    const allForSameSeat = applications
+      .filter(
+        (item) =>
+          item.seat === application.seat &&
+          item.unit === application.unit
+      )
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    
+    const myIndex = allForSameSeat.findIndex((item) => item.id === application.id);
+    if (myIndex === -1) return null;
+    
+    // approved হওয়া জন বাদ দিয়ে pending/waitlisted এর order বের করব
+    const unApprovedBefore = allForSameSeat
+      .slice(0, myIndex)
+      .filter((item) => item.status !== "approved");
+    
+    const waitingPosition = unApprovedBefore.length;
+    return waitingPosition >= 0 ? waitingPosition : null;
+  };
+
   const totalSeats = useMemo(() => ALL_SEATS.length, []);
 
   const approvedSeatsForSelectedUnit = useMemo(() => {
@@ -934,9 +962,16 @@ export default function RMSTUBusApplicationPage() {
 
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <span className="font-semibold text-green-900">আবেদন পাওয়া গেছে</span>
-                          <Badge className={`rounded-full ${statusClass(item.status)}`}>
-                            {statusBadgeText(item.status)}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge className={`rounded-full ${statusClass(item.status)}`}>
+                              {statusBadgeText(item.status)}
+                            </Badge>
+                            {getWaitingSerial(item) !== null && (
+                              <Badge className="rounded-full border border-amber-300 bg-amber-100 text-amber-800">
+                                W-{getWaitingSerial(item)}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
 
                         <div className="space-y-1 text-slate-700">
@@ -958,6 +993,17 @@ export default function RMSTUBusApplicationPage() {
                           <div>
                             <span className="font-medium">সিট:</span> {item.seat}
                           </div>
+                          {getWaitingSerial(item) !== null && (
+                            <div className="mt-2 rounded-2xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
+                              <span className="font-bold text-amber-800">
+                                {(() => {
+                                  const serial = getWaitingSerial(item);
+                                  if (serial === null) return null;
+                                  return `✓ Waiting Position: W-${serial} (${serial === 0 ? "আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে whatsapp e knock দিয়ে Seat Approve করুন।" : `${serial} জন আগে আছে`})`;
+                                })()}
+                              </span>
+                            </div>
+                          )}
                           <div className="pt-2">
                             <span className="font-medium">Travel Update:</span>{" "}
                             <Badge className={`ml-2 rounded-full ${travelUpdateClass(item.travelUpdate)}`}>
@@ -984,43 +1030,70 @@ export default function RMSTUBusApplicationPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="rounded-3xl border border-red-200 bg-red-50/50 p-4 sm:p-5">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm text-slate-500">Ticket ID</div>
-                        <div className="text-base font-bold text-green-900 sm:text-lg">
-                          {latestApplication.ticketId}
+                  {(() => {
+                    const displayApp = getUpdatedLatestApplication() || latestApplication;
+                    return (
+                      <div className="rounded-3xl border border-red-200 bg-red-50/50 p-4 sm:p-5">
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-sm text-slate-500">Ticket ID</div>
+                            <div className="text-base font-bold text-green-900 sm:text-lg">
+                              {displayApp.ticketId}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={`rounded-full ${statusClass(displayApp.status)}`}>
+                              {statusBadgeText(displayApp.status)}
+                            </Badge>
+                            {getWaitingSerial(displayApp) !== null && (
+                              <Badge className="rounded-full border border-amber-300 bg-amber-100 text-amber-800">
+                                W-{getWaitingSerial(displayApp)}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3 text-sm text-slate-700">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-green-700" /> {displayApp.name}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-green-700" /> {displayApp.phone}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <GraduationCap className="h-4 w-4 text-red-600" /> {displayApp.unit}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-red-600" /> {ROUTE_TITLE}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Bus className="h-4 w-4 text-green-700" /> Seat {displayApp.seat}
+                          </div>
+                          {getWaitingSerial(displayApp) !== null && (
+                            <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
+                              <span className="font-bold text-amber-800">
+                                {(() => {
+                                  const serial = getWaitingSerial(displayApp);
+                                  if (serial === null) return null;
+                                  return `✓ আপনার অবস্থান: W-${serial} (${serial === 0 ? "আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে Call দিয়ে Seat Approve করুন।" : `${serial} জন আগে অপেক্ষা করছে`})`;
+                                })()}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <CalendarDays className="h-4 w-4 text-red-600" />
+                            {displayApp.status === "approved" && "Approved ✓"}
+                            {displayApp.status === "rejected" && "Rejected"}
+                            {displayApp.status === "waitlisted" && `Waitlisted (W-${getWaitingSerial(displayApp)})`}
+                            {displayApp.status === "pending" && "Pending approval"}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Clock3 className="h-4 w-4 text-slate-600" /> No update
+                          </div>
                         </div>
                       </div>
-                      <Badge className="rounded-full border border-amber-200 bg-amber-100 text-amber-800">
-                        Pending
-                      </Badge>
-                    </div>
-
-                    <div className="space-y-3 text-sm text-slate-700">
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-green-700" /> {latestApplication.name}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4 text-green-700" /> {latestApplication.phone}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <GraduationCap className="h-4 w-4 text-red-600" /> {latestApplication.unit}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-red-600" /> {ROUTE_TITLE}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Bus className="h-4 w-4 text-green-700" /> Seat {latestApplication.seat}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CalendarDays className="h-4 w-4 text-red-600" /> Pending approval
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock3 className="h-4 w-4 text-slate-600" /> No update
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             )}
