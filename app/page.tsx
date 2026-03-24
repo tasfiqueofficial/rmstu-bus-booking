@@ -176,6 +176,9 @@ export default function RMSTUBusApplicationPage() {
   };
 
   const getWaitingSerial = (application: Application) => {
+    // Rejected হয়েছে তাদের জন্য waiting serial নেই
+    if (application.status === "rejected") return null;
+    
     // এই সিটে যত জন apply করেছে সব, সময় অনুযায়ী সাজানো
     const allForSameSeat = applications
       .filter(
@@ -188,10 +191,10 @@ export default function RMSTUBusApplicationPage() {
     const myIndex = allForSameSeat.findIndex((item) => item.id === application.id);
     if (myIndex === -1) return null;
     
-    // approved হওয়া জন বাদ দিয়ে pending/waitlisted এর order বের করব
+    // Approved এবং Rejected ছাড়া অন্যরা (pending/waitlisted) যারা আমার আগে apply করেছে
     const unApprovedBefore = allForSameSeat
       .slice(0, myIndex)
-      .filter((item) => item.status !== "approved");
+      .filter((item) => item.status !== "approved" && item.status !== "rejected");
     
     const waitingPosition = unApprovedBefore.length;
     return waitingPosition >= 0 ? waitingPosition : null;
@@ -993,17 +996,26 @@ export default function RMSTUBusApplicationPage() {
                           <div>
                             <span className="font-medium">সিট:</span> {item.seat}
                           </div>
-                          {getWaitingSerial(item) !== null && (
-                            <div className="mt-2 rounded-2xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
-                              <span className="font-bold text-amber-800">
-                                {(() => {
-                                  const serial = getWaitingSerial(item);
-                                  if (serial === null) return null;
-                                  return `✓ Waiting Position: W-${serial} (${serial === 0 ? "আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে whatsapp e knock দিয়ে Seat Approve করুন।" : `${serial} জন আগে আছে`})`;
-                                })()}
+                          {item.status === "approved" && (
+                            <div className="mt-2 rounded-2xl border-2 border-green-400 bg-green-50 px-3 py-2">
+                              <span className="font-bold text-green-800">
+                                ✓ Congratulations! আপনার seat টি Approve হয়েছে। 01643097477 এই number এ whatsapp এ knock দিয়ে Bus Group এ Join হয়ে নিন।
                               </span>
                             </div>
                           )}
+                          {(() => {
+                            const serial = getWaitingSerial(item);
+                            if (serial !== null && item.status !== "approved") {
+                              return (
+                                <div className="mt-2 rounded-2xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
+                                  <span className="font-bold text-amber-800">
+                                    ✓ Waiting Position: W-{serial} (আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে whatsapp e knock দিয়ে Seat Approve করুন।)
+                                  </span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                           <div className="pt-2">
                             <span className="font-medium">Travel Update:</span>{" "}
                             <Badge className={`ml-2 rounded-full ${travelUpdateClass(item.travelUpdate)}`}>
@@ -1069,17 +1081,26 @@ export default function RMSTUBusApplicationPage() {
                           <div className="flex items-center gap-2">
                             <Bus className="h-4 w-4 text-green-700" /> Seat {displayApp.seat}
                           </div>
-                          {getWaitingSerial(displayApp) !== null && (
-                            <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
-                              <span className="font-bold text-amber-800">
-                                {(() => {
-                                  const serial = getWaitingSerial(displayApp);
-                                  if (serial === null) return null;
-                                  return `✓ আপনার অবস্থান: W-${serial} (${serial === 0 ? "আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে Call দিয়ে Seat Approve করুন।" : `${serial} জন আগে অপেক্ষা করছে`})`;
-                                })()}
+                          {displayApp.status === "approved" && (
+                            <div className="rounded-2xl border-2 border-green-400 bg-green-50 px-3 py-2">
+                              <span className="font-bold text-green-800">
+                                ✓ Congratulations! আপনার seat টি Approve হয়েছে। 01643097477 এই number এ whatsapp এ knock দিয়ে Bus Group এ Join হয়ে নিন।
                               </span>
                             </div>
                           )}
+                          {(() => {
+                            const serial = getWaitingSerial(displayApp);
+                            if (serial !== null && displayApp.status !== "approved") {
+                              return (
+                                <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
+                                  <span className="font-bold text-amber-800">
+                                    ✓ আপনার অবস্থান: W-{serial} (আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে whatsapp e knock দিয়ে Seat Approve করুন।)
+                                  </span>
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                           <div className="flex items-center gap-2">
                             <CalendarDays className="h-4 w-4 text-red-600" />
                             {displayApp.status === "approved" && "Approved ✓"}
