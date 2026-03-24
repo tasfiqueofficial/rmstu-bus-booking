@@ -50,6 +50,7 @@ type Application = {
   createdAt: string;
   travelUpdate?: TravelUpdateType;
   travelUpdatedAt?: string | null;
+  rejectionNote?: string | null;
 };
 
 const ROUTE_TITLE = "চট্টগ্রাম অক্সিজেন → রাঙামাটি";
@@ -142,6 +143,8 @@ export default function RMSTUBusApplicationPage() {
   const [adminBusyId, setAdminBusyId] = useState("");
   const [adminUnitFilter, setAdminUnitFilter] = useState<UnitType | "all">("all");
   const [adminSeatSearch, setAdminSeatSearch] = useState("");
+  const [adminSeatAssignments, setAdminSeatAssignments] = useState<Record<string, string>>({});
+  const [adminRejectNotes, setAdminRejectNotes] = useState<Record<string, string>>({});
 
   const loadApplications = useCallback(async () => {
     setIsLoadingData(true);
@@ -315,6 +318,7 @@ export default function RMSTUBusApplicationPage() {
         createdAt: new Date().toISOString(),
         travelUpdate: "none",
         travelUpdatedAt: null,
+        rejectionNote: null,
       };
 
       await addDoc(collection(db, "applications"), application);
@@ -407,7 +411,9 @@ export default function RMSTUBusApplicationPage() {
         );
         const approvedSeatSnapshot = await getDocs(approvedSeatQuery);
 
-        const hasOtherApproved = approvedSeatSnapshot.docs.some((docItem) => docItem.id !== application.id);
+        const hasOtherApproved = approvedSeatSnapshot.docs.some(
+          (docItem) => docItem.id !== application.id
+        );
 
         if (hasOtherApproved) {
           setMessage("এই ইউনিটের এই সিটে ইতোমধ্যে একজন approved হয়েছে।");
@@ -433,7 +439,15 @@ export default function RMSTUBusApplicationPage() {
         }
       }
 
-      await updateDoc(doc(db, "applications", application.id), { status: nextStatus });
+      const payload: Partial<Application> = {
+        status: nextStatus,
+      };
+
+      if (nextStatus !== "rejected") {
+        payload.rejectionNote = null;
+      }
+
+      await updateDoc(doc(db, "applications", application.id), payload);
 
       if (nextStatus === "approved") {
         const sameSeatPendingSameUnit = applications.filter(
@@ -446,7 +460,10 @@ export default function RMSTUBusApplicationPage() {
 
         for (const item of sameSeatPendingSameUnit) {
           if (item.id) {
-            await updateDoc(doc(db, "applications", item.id), { status: "rejected" });
+            await updateDoc(doc(db, "applications", item.id), {
+              status: "rejected",
+              rejectionNote: "এই সিটে অন্য একজন আবেদনকারী approved হয়েছেন।",
+            });
           }
         }
       }
@@ -456,6 +473,90 @@ export default function RMSTUBusApplicationPage() {
     } catch (error) {
       console.error(error);
       setMessage("Status update করা যায়নি।");
+    } finally {
+      setAdminBusyId("");
+    }
+  };
+
+  const rejectWithNote = async (application: Application) => {
+    if (!application.id) return;
+
+    const note = (adminRejectNotes[application.id] || "").trim();
+
+    if (!note) {
+      setMessage("Reject করার আগে একটি note/reason লিখুন।");
+      return;
+    }
+
+    setAdminBusyId(application.id);
+    setMessage("");
+
+    try {
+      await updateDoc(doc(db, "applications", application.id), {
+        status: "rejected",
+        rejectionNote: note,
+      });
+
+      setAdminRejectNotes((prev) => ({ ...prev, [application.id as string]: "" }));
+      setMessage("Applicant rejected করা হয়েছে এবং note save হয়েছে।");
+      await loadApplications();
+    } catch (error) {
+      console.error(error);
+      setMessage("Reject note save করা যায়নি।");
+    } finally {
+      setAdminBusyId("");
+    }
+  };
+
+  const assignSeatToApplicant = async (application: Application) => {
+    if (!application.id) return;
+
+    const nextSeatRaw = adminSeatAssignments[application.id] || "";
+    const nextSeat = nextSeatRaw.trim().toUpperCase();
+
+    if (!nextSeat) {
+      setMessage("নতুন seat লিখুন।");
+      return;
+    }
+
+    if (!ALL_SEATS.includes(nextSeat)) {
+      setMessage("এই seat নামটি valid না।");
+      return;
+    }
+
+    if (nextSeat === application.seat) {
+      setMessage("Applicant already এই seat-এ আছে।");
+      return;
+    }
+
+    setAdminBusyId(application.id);
+    setMessage("");
+
+    try {
+      const approvedSeatQuery = query(
+        collection(db, "applications"),
+        where("seat", "==", nextSeat),
+        where("unit", "==", application.unit),
+        where("status", "==", "approved")
+      );
+      const approvedSeatSnapshot = await getDocs(approvedSeatQuery);
+
+      if (!approvedSeatSnapshot.empty) {
+        setMessage("নতুন seat-এ ইতোমধ্যে একজন approved আছেন।");
+        setAdminBusyId("");
+        return;
+      }
+
+      await updateDoc(doc(db, "applications", application.id), {
+        seat: nextSeat,
+      });
+
+      setAdminSeatAssignments((prev) => ({ ...prev, [application.id as string]: "" }));
+      setMessage(`Seat successfully ${application.seat} থেকে ${nextSeat} এ assign করা হয়েছে।`);
+      await loadApplications();
+    } catch (error) {
+      console.error(error);
+      setMessage("Seat assign করা যায়নি।");
     } finally {
       setAdminBusyId("");
     }
@@ -650,10 +751,9 @@ export default function RMSTUBusApplicationPage() {
 
                 <div className="sm:col-span-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-xs leading-6 text-red-800 sm:text-sm">
                   প্রতিটি ইউনিটের waiting এবং approved সিট আলাদা আলাদা গণনা করা হবে। অর্থাৎ A Unit,
-                 B Unit, C Unit — প্রত্যেক ইউনিটের জন্য seat waiting list এবং approval আলাদা থাকবে।
-                 সিটের উপরে <strong>W-1</strong>, <strong>W-2</strong> এভাবে দেখাবে, যা এই ইউনিটে
-                 ঐ সিটের waiting আবেদনকারীর সংখ্যা বোঝাবে।
-
+                  B Unit, C Unit — প্রত্যেক ইউনিটের জন্য seat waiting list এবং approval আলাদা থাকবে।
+                  সিটের উপরে <strong>W-1</strong>, <strong>W-2</strong> এভাবে দেখাবে, যা এই ইউনিটে
+                  ঐ সিটের waiting আবেদনকারীর সংখ্যা বোঝাবে।
                 </div>
               </CardContent>
             </Card>
@@ -789,8 +889,17 @@ export default function RMSTUBusApplicationPage() {
                     {searchResults.map((item) => (
                       <div
                         key={item.ticketId}
-                        className="rounded-3xl border border-green-100 bg-white p-4 text-sm leading-6 shadow-sm"
+                        className={`rounded-3xl border p-4 text-sm leading-6 shadow-sm ${
+                          item.status === "rejected" ? "border-red-300 bg-red-50" : "border-green-100 bg-white"
+                        }`}
                       >
+                        {item.status === "rejected" && item.rejectionNote && (
+                          <div className="mb-3 rounded-2xl border-2 border-red-400 bg-red-100 px-4 py-2">
+                            <span className="block font-bold text-red-700">রিজেকশনের কারণ:</span>
+                            <span className="block font-medium text-red-800 mt-1">{item.rejectionNote}</span>
+                          </div>
+                        )}
+
                         <div className="mb-3 flex items-center justify-between gap-3">
                           <span className="font-semibold text-green-900">আবেদন পাওয়া গেছে</span>
                           <Badge className={`rounded-full ${statusClass(item.status)}`}>
@@ -1083,7 +1192,42 @@ export default function RMSTUBusApplicationPage() {
                             <span className="font-medium">Travel Update Time:</span>{" "}
                             {formatDateTime(item.travelUpdatedAt)}
                           </div>
+                          {item.status === "rejected" && item.rejectionNote && (
+                            <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-red-700">
+                              <span className="font-medium">Reject Note:</span> {item.rejectionNote}
+                            </div>
+                          )}
                         </div>
+
+                        {(item.status === "pending" || item.status === "waitlisted") && (
+                          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                            <div className="mb-2 text-sm font-semibold text-amber-800">
+                              অন্য সিট assign করুন
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                              <Input
+                                value={adminSeatAssignments[item.id || ""] || ""}
+                                onChange={(e) =>
+                                  setAdminSeatAssignments((prev) => ({
+                                    ...prev,
+                                    [item.id || ""]: e.target.value,
+                                  }))
+                                }
+                                placeholder="নতুন seat যেমন B2"
+                                className="h-11 rounded-2xl border-amber-200 bg-white"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="rounded-2xl border-amber-300 text-amber-800 hover:bg-amber-100"
+                                disabled={adminBusyId === item.id}
+                                onClick={() => assignSeatToApplicant(item)}
+                              >
+                                Seat Assign
+                              </Button>
+                            </div>
+                          </div>
+                        )}
 
                         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
                           <Button
@@ -1107,11 +1251,30 @@ export default function RMSTUBusApplicationPage() {
                             variant="outline"
                             className="rounded-2xl border-red-300 text-red-700 hover:bg-red-50"
                             disabled={adminBusyId === item.id || item.status === "rejected"}
-                            onClick={() => updateStatus(item, "rejected")}
+                            onClick={() => rejectWithNote(item)}
                           >
-                            <XCircle className="mr-1 h-4 w-4" /> Reject
+                            <XCircle className="mr-1 h-4 w-4" /> Reject with Note
                           </Button>
                         </div>
+
+                        {item.status !== "approved" && (
+                          <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3">
+                            <div className="mb-2 text-sm font-semibold text-red-800">
+                              Reject note
+                            </div>
+                            <Input
+                              value={adminRejectNotes[item.id || ""] || ""}
+                              onChange={(e) =>
+                                setAdminRejectNotes((prev) => ({
+                                  ...prev,
+                                  [item.id || ""]: e.target.value,
+                                }))
+                              }
+                              placeholder="Reject করার কারণ লিখুন"
+                              className="h-11 rounded-2xl border-red-200 bg-white"
+                            />
+                          </div>
+                        )}
 
                         {item.status === "approved" && (
                           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1163,7 +1326,8 @@ export default function RMSTUBusApplicationPage() {
                   <li>একই নাম্বার দিয়ে আলাদা আলাদা সময়ে, আলাদা আলাদা নাম দিয়ে আবেদন করতে হবে</li>
                   <li>যাত্রা শুরু হলে admin panel থেকে Departing update করা যাবে</li>
                   <li>গন্তব্যে পৌঁছালে admin panel থেকে Arriving update করা যাবে</li>
-                  <li>Approved হলে SMS/কলের মাধ্যমে জানানো হবে</li>
+                  <li>Admin চাইলে pending / waitlisted applicant-কে অন্য seat assign করতে পারবেন</li>
+                  <li>Reject করলে admin note/reason save করা যাবে</li>
                 </ol>
               </CardContent>
             </Card>
