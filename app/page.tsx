@@ -145,6 +145,8 @@ export default function RMSTUBusApplicationPage() {
   const [adminSeatSearch, setAdminSeatSearch] = useState("");
   const [adminSeatAssignments, setAdminSeatAssignments] = useState<Record<string, string>>({});
   const [adminRejectNotes, setAdminRejectNotes] = useState<Record<string, string>>({});
+  const [adminEditingRejectedId, setAdminEditingRejectedId] = useState<string | null>(null);
+  const [adminUpdatedRejectionNotes, setAdminUpdatedRejectionNotes] = useState<Record<string, string>>({});
 
   const loadApplications = useCallback(async () => {
     setIsLoadingData(true);
@@ -503,6 +505,36 @@ export default function RMSTUBusApplicationPage() {
     } catch (error) {
       console.error(error);
       setMessage("Reject note save করা যায়নি।");
+    } finally {
+      setAdminBusyId("");
+    }
+  };
+
+  const updateRejectionNote = async (application: Application) => {
+    if (!application.id) return;
+
+    const updatedNote = (adminUpdatedRejectionNotes[application.id] || "").trim();
+
+    if (!updatedNote) {
+      setMessage("আপডেট করার আগে কারণ লিখুন।");
+      return;
+    }
+
+    setAdminBusyId(application.id);
+    setMessage("");
+
+    try {
+      await updateDoc(doc(db, "applications", application.id), {
+        rejectionNote: updatedNote,
+      });
+
+      setAdminUpdatedRejectionNotes((prev) => ({ ...prev, [application.id as string]: "" }));
+      setAdminEditingRejectedId(null);
+      setMessage("রিজেকশন নোট আপডেট হয়েছে।");
+      await loadApplications();
+    } catch (error) {
+      console.error(error);
+      setMessage("নোট আপডেট করা যায়নি।");
     } finally {
       setAdminBusyId("");
     }
@@ -1192,9 +1224,92 @@ export default function RMSTUBusApplicationPage() {
                             <span className="font-medium">Travel Update Time:</span>{" "}
                             {formatDateTime(item.travelUpdatedAt)}
                           </div>
-                          {item.status === "rejected" && item.rejectionNote && (
-                            <div className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-red-700">
-                              <span className="font-medium">Reject Note:</span> {item.rejectionNote}
+                          {item.status === "rejected" && (
+                            <div className="mt-3 space-y-2">
+                              {adminEditingRejectedId === item.id ? (
+                                <div className="rounded-2xl border border-red-300 bg-red-100 p-3">
+                                  <div className="mb-2 text-sm font-semibold text-red-800">
+                                    {item.rejectionNote ? "রিজেকশন নোট এডিট করুন" : "রিজেকশন নোট যোগ করুন"}
+                                  </div>
+                                  <Input
+                                    value={adminUpdatedRejectionNotes[item.id] || item.rejectionNote || ""}
+                                    onChange={(e) =>
+                                      setAdminUpdatedRejectionNotes((prev) => ({
+                                        ...prev,
+                                        [item.id || ""]: e.target.value,
+                                      }))
+                                    }
+                                    placeholder="রিজেকশনের কারণ লিখুন"
+                                    className="mb-2 h-11 rounded-2xl border-red-200 bg-white"
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button
+                                      type="button"
+                                      className="flex-1 rounded-2xl bg-red-600 text-white hover:bg-red-700"
+                                      disabled={adminBusyId === item.id}
+                                      onClick={() => updateRejectionNote(item)}
+                                    >
+                                      সেভ করুন
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      className="flex-1 rounded-2xl border-red-300 text-red-700 hover:bg-red-50"
+                                      disabled={adminBusyId === item.id}
+                                      onClick={() => {
+                                        setAdminEditingRejectedId(null);
+                                        setAdminUpdatedRejectionNotes((prev) => ({
+                                          ...prev,
+                                          [item.id || ""]: "",
+                                        }));
+                                      }}
+                                    >
+                                      ক্যান্সেল
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : item.rejectionNote ? (
+                                <div className="flex items-start justify-between gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2">
+                                  <div className="text-red-700">
+                                    <span className="font-medium">Reject Note:</span> {item.rejectionNote}
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg border-red-300 text-red-700 hover:bg-red-100"
+                                    disabled={adminBusyId === item.id}
+                                    onClick={() => {
+                                      if (item.id) {
+                                        setAdminEditingRejectedId(item.id);
+                                        setAdminUpdatedRejectionNotes((prev) => ({
+                                          ...prev,
+                                          [item.id || ""]: item.rejectionNote || "",
+                                        }));
+                                      }
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
+                                </div>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  className="w-full rounded-2xl border border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+                                  disabled={adminBusyId === item.id}
+                                  onClick={() => {
+                                    if (item.id) {
+                                      setAdminEditingRejectedId(item.id);
+                                      setAdminUpdatedRejectionNotes((prev) => ({
+                                        ...prev,
+                                        [item.id || ""]: "",
+                                      }));
+                                    }
+                                  }}
+                                >
+                                  + রিজেকশন নোট যোগ করুন
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
