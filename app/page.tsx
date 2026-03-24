@@ -1006,10 +1006,13 @@ export default function RMSTUBusApplicationPage() {
                           {(() => {
                             const serial = getWaitingSerial(item);
                             if (serial !== null && item.status !== "approved") {
+                              const message = serial === 0
+                                ? "আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে whatsapp e knock দিয়ে Seat Approve করুন।"
+                                : "অপেক্ষা করুন";
                               return (
                                 <div className="mt-2 rounded-2xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
                                   <span className="font-bold text-amber-800">
-                                    ✓ Waiting Position: W-{serial} (আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে whatsapp e knock দিয়ে Seat Approve করুন।)
+                                    ✓ Waiting Position: W-{serial} ({message})
                                   </span>
                                 </div>
                               );
@@ -1091,10 +1094,13 @@ export default function RMSTUBusApplicationPage() {
                           {(() => {
                             const serial = getWaitingSerial(displayApp);
                             if (serial !== null && displayApp.status !== "approved") {
+                              const message = serial === 0
+                                ? "আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে whatsapp e knock দিয়ে Seat Approve করুন।"
+                                : "অপেক্ষা করুন";
                               return (
                                 <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 px-3 py-2">
                                   <span className="font-bold text-amber-800">
-                                    ✓ আপনার অবস্থান: W-{serial} (আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে whatsapp e knock দিয়ে Seat Approve করুন।)
+                                    ✓ আপনার অবস্থান: W-{serial} ({message})
                                   </span>
                                 </div>
                               );
