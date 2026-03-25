@@ -127,3 +127,28 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  @keyframes strike-pop {
+    0% { transform: translate(-50%, -50%) scale(0.6); opacity: 0.7; }
+    60% { transform: translate(-50%, -60%) scale(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -100%) scale(0.8); opacity: 0; }
+  }
+
+  .animate-strike {
+    animation: strike-pop 0.6s ease-out forwards;
+  }
+
+  @keyframes throw-from-side {
+    to {
+      left: var(--target-x);
+      top: var(--target-y);
+      transform: translate(-50%, -50%) rotate(720deg);
+      opacity: 0;
+    }
+  }
+
+  .animate-throw {
+    animation: throw-from-side 0.7s ease-out forwards;
+  }
+}

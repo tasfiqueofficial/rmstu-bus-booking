@@ -15,14 +15,14 @@ const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 export const db = getFirestore(app);
 
-// Initialize Analytics (only in browser environment)
-let analytics;
-if (typeof window !== 'undefined') {
-  isSupported().then((supported) => {
-    if (supported) {
-      analytics = getAnalytics(app);
-    }
-  });
-}
+// // Initialize Analytics (only in browser environment)
+// let analytics;
+// if (typeof window !== 'undefined') {
+//   isSupported().then((supported) => {
+//     if (supported) {
+//       analytics = getAnalytics(app);
+//     }
+//   });
+// }
 
-export { analytics };
+// export { analytics };
