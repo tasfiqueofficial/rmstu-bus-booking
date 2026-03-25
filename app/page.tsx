@@ -147,16 +147,28 @@ export default function RMSTUBusApplicationPage() {
   const [adminRejectNotes, setAdminRejectNotes] = useState<Record<string, string>>({});
   const [adminEditingRejectedId, setAdminEditingRejectedId] = useState<string | null>(null);
   const [adminUpdatedRejectionNotes, setAdminUpdatedRejectionNotes] = useState<Record<string, string>>({});
+  const [lastLoadTime, setLastLoadTime] = useState<number>(0);
+  const CACHE_DURATION = 5 * 60 * 1000;
 
-  const loadApplications = useCallback(async () => {
+  const loadApplications = useCallback(async (force: boolean = false) => {
+    const now = Date.now();
+    
+    if (!force && now - lastLoadTime < CACHE_DURATION) {
+      console.log("📦 Using cached data, skipping fetch");
+      return;
+    }
+
     setIsLoadingData(true);
     try {
+      console.log("🔄 Fetching fresh data from Firebase");
       const snapshot = await getDocs(collection(db, "applications"));
       const data = snapshot.docs
         .map((item) => ({ id: item.id, ...(item.data() as Application) }))
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
       setApplications(data);
+      setLastLoadTime(now);
+      setMessage("");
     } catch (error) {
       console.error(error);
       setMessage("Data load করা যায়নি। একটু পরে আবার চেষ্টা করুন।");
@@ -295,31 +307,12 @@ export default function RMSTUBusApplicationPage() {
     setIsSubmitting(true);
 
     try {
-      const approvedPhoneQuery = query(
-        collection(db, "applications"),
-        where("phone", "==", cleanPhone),
-        where("status", "==", "approved")
-      );
-      const approvedPhoneSnapshot = await getDocs(approvedPhoneQuery);
-
-      if (!approvedPhoneSnapshot.empty) {
-        setMessage("এই মোবাইল নম্বরে ইতোমধ্যে একটি approved ticket আছে।");
-        setIsSubmitting(false);
-        return;
-      }
-
       const samePhoneQuery = query(
         collection(db, "applications"),
         where("phone", "==", cleanPhone)
       );
       const samePhoneSnapshot = await getDocs(samePhoneQuery);
       const samePhoneApplications = samePhoneSnapshot.docs.map((d) => d.data() as Application);
-
-      if (samePhoneApplications.length >= 3) {
-        setMessage("একই মোবাইল নম্বর দিয়ে সর্বোচ্চ ৩টি আবেদন করা যাবে।");
-        setIsSubmitting(false);
-        return;
-      }
 
       const duplicateSameName = samePhoneApplications.some(
         (item) => normalizeName(item.name) === normalizedIncomingName
@@ -450,23 +443,6 @@ export default function RMSTUBusApplicationPage() {
 
         if (hasOtherApproved) {
           setMessage("এই ইউনিটের এই সিটে ইতোমধ্যে একজন approved হয়েছে।");
-          setAdminBusyId("");
-          return;
-        }
-
-        const approvedPhoneQuery = query(
-          collection(db, "applications"),
-          where("phone", "==", application.phone),
-          where("status", "==", "approved")
-        );
-        const approvedPhoneSnapshot = await getDocs(approvedPhoneQuery);
-
-        const hasOtherPhoneApproved = approvedPhoneSnapshot.docs.some(
-          (docItem) => docItem.id !== application.id
-        );
-
-        if (hasOtherPhoneApproved) {
-          setMessage("এই মোবাইল নম্বরে ইতোমধ্যে একটি approved ticket আছে।");
           setAdminBusyId("");
           return;
         }
@@ -604,10 +580,17 @@ export default function RMSTUBusApplicationPage() {
       );
       const approvedSeatSnapshot = await getDocs(approvedSeatQuery);
 
+      // If there's someone already approved for this seat, reject them
       if (!approvedSeatSnapshot.empty) {
-        setMessage("নতুন seat-এ ইতোমধ্যে একজন approved আছেন।");
-        setAdminBusyId("");
-        return;
+        const currentApprovedDoc = approvedSeatSnapshot.docs[0];
+        const currentApprovedData = currentApprovedDoc.data() as Application;
+        
+        await updateDoc(doc(db, "applications", currentApprovedDoc.id), {
+          status: "rejected",
+          rejectionNote: `এই সিটে ${application.name} (${application.ticketId}) assign করা হয়েছে।`,
+        });
+        
+        setMessage(`পূর্বের approved applicant ${currentApprovedData.name} কে rejected করে নতুন applicant কে assign করা হলো।`);
       }
 
       await updateDoc(doc(db, "applications", application.id), {
@@ -657,7 +640,7 @@ export default function RMSTUBusApplicationPage() {
           <Button
             type="button"
             variant="outline"
-            onClick={loadApplications}
+            onClick={() => loadApplications()}
             disabled={isLoadingData}
             className="rounded-2xl border-green-200 text-green-800"
           >
@@ -1006,7 +989,10 @@ export default function RMSTUBusApplicationPage() {
                           {(() => {
                             const serial = getWaitingSerial(item);
                             if (serial !== null && item.status !== "approved") {
-                              const message = serial === 0
+                              const isAOrBUnit = item.unit === "A Unit" || item.unit === "B Unit";
+                              const message = (serial === 0 && isAOrBUnit)
+                                ? "অভিনন্দন, আপনি সবার প্রথমে আবেদন করেছেন। C ইউনিটের এক্সামের পর সবার আগে আপনার সাথে যোগাযোগ করা হবে।অপেক্ষা করুন"
+                                : serial === 0
                                 ? "আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে whatsapp e knock দিয়ে Seat Approve করুন।"
                                 : "অপেক্ষা করুন";
                               return (
@@ -1094,7 +1080,10 @@ export default function RMSTUBusApplicationPage() {
                           {(() => {
                             const serial = getWaitingSerial(displayApp);
                             if (serial !== null && displayApp.status !== "approved") {
-                              const message = serial === 0
+                              const isAOrBUnit = displayApp.unit === "A Unit" || displayApp.unit === "B Unit";
+                              const message = (serial === 0 && isAOrBUnit)
+                                ? "অভিনন্দন, আপনি সবার প্রথমে আবেদন করেছেন। C ইউনিটের এক্সামের পর সবার আগে আপনার সাথে যোগাযোগ করা হবে।অপেক্ষা করুন"
+                                : serial === 0
                                 ? "আপনাকে Call দেওয়া হবে অথবা আপনি 01643097477 এই নম্বরে whatsapp e knock দিয়ে Seat Approve করুন।"
                                 : "অপেক্ষা করুন";
                               return (
@@ -1414,7 +1403,7 @@ export default function RMSTUBusApplicationPage() {
                           )}
                         </div>
 
-                        {(item.status === "pending" || item.status === "waitlisted") && (
+                        {(item.status === "pending" || item.status === "waitlisted" || item.status === "approved" || item.status === "rejected") && (
                           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
                             <div className="mb-2 text-sm font-semibold text-amber-800">
                               অন্য সিট assign করুন
