@@ -556,7 +556,7 @@ export default function RMSTUBusApplicationPage() {
       }
 
       setMessage("Status update সফল হয়েছে।");
-      await loadApplications();
+      await loadApplications(true);
     } catch (error) {
       console.error(error);
       setMessage("Status update করা যায়নি।");
@@ -586,7 +586,7 @@ export default function RMSTUBusApplicationPage() {
 
       setAdminRejectNotes((prev) => ({ ...prev, [application.id as string]: "" }));
       setMessage("Applicant rejected করা হয়েছে এবং note save হয়েছে।");
-      await loadApplications();
+      await loadApplications(true);
     } catch (error) {
       console.error(error);
       setMessage("Reject note save করা যায়নি।");
@@ -616,7 +616,7 @@ export default function RMSTUBusApplicationPage() {
       setAdminUpdatedRejectionNotes((prev) => ({ ...prev, [application.id as string]: "" }));
       setAdminEditingRejectedId(null);
       setMessage("রিজেকশন নোট আপডেট হয়েছে।");
-      await loadApplications();
+      await loadApplications(true);
     } catch (error) {
       console.error(error);
       setMessage("নোট আপডেট করা যায়নি।");
@@ -710,7 +710,7 @@ export default function RMSTUBusApplicationPage() {
 
       setAdminSeatAssignments((prev) => ({ ...prev, [application.id as string]: "" }));
       setMessage(`Seat successfully ${application.seat} থেকে ${nextSeat} এ assign করা হয়েছে।`);
-      await loadApplications();
+      await loadApplications(true);
     } catch (error) {
       console.error(error);
       setMessage("Seat assign করা যায়নি।");
@@ -735,7 +735,7 @@ export default function RMSTUBusApplicationPage() {
       });
 
       setMessage("Travel update সফল হয়েছে।");
-      await loadApplications();
+      await loadApplications(true);
     } catch (error) {
       console.error(error);
       setMessage("Travel update করা যায়নি।");
