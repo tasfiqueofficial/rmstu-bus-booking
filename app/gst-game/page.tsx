@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 type ThrowEffect = {
@@ -26,7 +27,7 @@ export default function GSTGamePage() {
   const [hits, setHits] = useState(0);
   const [misses, setMisses] = useState(0);
   const [score, setScore] = useState(0);
-  const [target, setTarget] = useState({ x: 50, y: 50 });
+  const [target, setTarget] = useState(getRandomTarget());
   const [message, setMessage] = useState("জয়েন করে প্রথম ক্লিক কর! জুতা মারো");
   const [gameOver, setGameOver] = useState(false);
   const [strikeEffects, setStrikeEffects] = useState<
@@ -34,10 +35,6 @@ export default function GSTGamePage() {
   >([]);
   const [throwEffects, setThrowEffects] = useState<ThrowEffect[]>([]);
   const imageRef = useRef<HTMLImageElement | null>(null);
-
-  React.useEffect(() => {
-    setTarget(getRandomTarget());
-  }, []);
 
   const probability = useMemo(() => {
     const value = Math.max(0, Math.min(100, score));
@@ -84,10 +81,11 @@ export default function GSTGamePage() {
       setThrowEffects((prev) => prev.filter((item) => item.id !== leftId && item.id !== rightId));
     }, 700);
 
-    const playShoeSound = () => {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) return;
-      const ctx = new AudioContext();
+      const playShoeSound = () => {
+      const webkitAudioContext = (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "square";
@@ -232,12 +230,12 @@ export default function GSTGamePage() {
             রিস্টার্ট গেম
           </button>
           {gameOver && (
-            <a
+            <Link
               href="/"
               className="rounded-xl border border-sky-300 bg-white px-4 py-2 text-sm font-bold text-sky-700 hover:bg-sky-50"
             >
               মূল পেজে ফিরে যাও
-            </a>
+            </Link>
           )}
         </div>
 

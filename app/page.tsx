@@ -32,6 +32,7 @@ import {
   LocateFixed,
   Flag,
   RefreshCw,
+  LayoutDashboard,
 } from "lucide-react";
 
 type StatusType = "pending" | "approved" | "rejected" | "waitlisted";
@@ -50,6 +51,7 @@ type Application = {
   travelUpdate?: TravelUpdateType;
   travelUpdatedAt?: string | null;
   rejectionNote?: string | null;
+  carNumber?: number | null;
 };
 
 const ROUTE_TITLE = "চট্টগ্রাম অক্সিজেন → রাঙামাটি";
@@ -70,7 +72,21 @@ const seatLayout: (string | null)[][] = [
   ["I1", "I2", "J1", "J2", "I3", "I4"],
 ];
 
-const ALL_SEATS = seatLayout.flat().filter(Boolean) as string[];
+const ADMIN_PASSCODE = "rmstu-admin-2026";
+const SEATS_PER_UNIT = 38;
+const A_UNIT_BUS_COUNT = 2;
+const ALL_SEATS = [
+  "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10",
+  "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10",
+  "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8", "C9", "C10",
+  "D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10",
+  "E1", "E2", "E3", "E4", "E5", "E6", "E7", "E8", "E9", "E10",
+  "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10",
+  "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9", "G10",
+  "H1", "H2", "H3", "H4", "H5", "H6", "H7", "H8", "H9", "H10",
+  "I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8", "I9", "I10",
+  "J1", "J2", "J3", "J4", "J5", "J6", "J7", "J8", "J9", "J10",
+];
 
 function maskPhone(phone: string) {
   if (phone.length < 11) return phone;
@@ -117,9 +133,13 @@ function travelUpdateClass(update?: TravelUpdateType) {
   return "bg-slate-100 text-slate-700 border border-slate-200";
 }
 
-function formatDateTime(value?: string | null) {
-  if (!value) return "No update";
-  return new Date(value).toLocaleString();
+function formatDateTime(dateTimeStr?: string | null) {
+  if (!dateTimeStr) return "No update";
+  try {
+    return new Date(dateTimeStr).toLocaleString();
+  } catch {
+    return "Invalid date";
+  }
 }
 
 export default function RMSTUBusApplicationPage() {
@@ -136,7 +156,17 @@ export default function RMSTUBusApplicationPage() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [showMarchPopup, setShowMarchPopup] = useState(false);
   const [lastLoadTime, setLastLoadTime] = useState<number>(0);
+  const [adminPasscode, setAdminPasscode] = useState("");
   const CACHE_DURATION = 5 * 60 * 1000;
+  const [adminOpen, setAdminOpen] = useState(false);
+  const [adminFilter, setAdminFilter] = useState<StatusType | "all">("pending");
+  const [adminBusyId, setAdminBusyId] = useState("");
+  const [adminUnitFilter, setAdminUnitFilter] = useState<UnitType | "all">("all");
+  const [adminSeatSearch, setAdminSeatSearch] = useState("");
+  const [adminSeatAssignments, setAdminSeatAssignments] = useState<Record<string, string>>({});
+  const [adminRejectNotes, setAdminRejectNotes] = useState<Record<string, string>>({});
+  const [adminEditingRejectedId, setAdminEditingRejectedId] = useState<string | null>(null);
+  const [adminUpdatedRejectionNotes, setAdminUpdatedRejectionNotes] = useState<Record<string, string>>({});
 
   const loadApplications = useCallback(async (force: boolean = false) => {
     const now = Date.now();
@@ -163,7 +193,7 @@ export default function RMSTUBusApplicationPage() {
     } finally {
       setIsLoadingData(false);
     }
-  }, []);
+  }, [lastLoadTime, CACHE_DURATION]);
 
   useEffect(() => {
     loadApplications();
@@ -205,13 +235,33 @@ export default function RMSTUBusApplicationPage() {
     return waitingPosition >= 0 ? waitingPosition : null;
   };
 
-  const totalSeats = useMemo(() => ALL_SEATS.length, []);
+  const totalSeats = SEATS_PER_UNIT;
 
   const approvedSeatsForSelectedUnit = useMemo(() => {
     return applications
       .filter((item) => item.status === "approved" && item.unit === unit)
       .map((item) => item.seat);
   }, [applications, unit]);
+
+  const approvedSlotsForSelectedUnit = useMemo(() => {
+    return applications.filter((item) => item.status === "approved" && item.unit === unit).length;
+  }, [applications, unit]);
+
+  const fullyApprovedSeatsForSelectedUnit = useMemo(() => {
+    const approvedSeats = applications.filter((item) => item.status === "approved" && item.unit === unit);
+    const seatCounts: Record<string, number> = {};
+    approvedSeats.forEach((item) => {
+      seatCounts[item.seat] = (seatCounts[item.seat] || 0) + 1;
+    });
+    // For A Unit, seats are fully approved only when 2 people are approved
+    // For other units, seats are fully approved when 1 person is approved
+    return Object.keys(seatCounts).filter((seat) => {
+      const count = seatCounts[seat];
+      return unit === "A Unit" ? count >= 2 : count >= 1;
+    });
+  }, [applications, unit]);
+
+  const selectedUnitTotalSeats = unit === "A Unit" ? SEATS_PER_UNIT * A_UNIT_BUS_COUNT : SEATS_PER_UNIT;
 
   const waitingCountsBySeatForSelectedUnit = useMemo(() => {
     const map: Record<string, number> = {};
@@ -224,7 +274,7 @@ export default function RMSTUBusApplicationPage() {
   }, [applications, unit]);
 
   const approvedCount = applications.filter((item) => item.status === "approved").length;
-  const availableSeatsForSelectedUnit = totalSeats - approvedSeatsForSelectedUnit.length;
+  const availableSeatsForSelectedUnit = selectedUnitTotalSeats - approvedSlotsForSelectedUnit;
 
   const pendingCount = applications.filter((item) => item.status === "pending").length;
   const pendingCountForSelectedUnit = applications.filter(
@@ -257,6 +307,25 @@ export default function RMSTUBusApplicationPage() {
   const cUnitWaiting = applications.filter(
     (item) => item.unit === "C Unit" && item.status === "pending"
   ).length;
+
+  const adminApplications = useMemo(() => {
+    let filtered = applications;
+
+    if (adminFilter !== "all") {
+      filtered = filtered.filter((a) => a.status === adminFilter);
+    }
+
+    if (adminUnitFilter !== "all") {
+      filtered = filtered.filter((a) => a.unit === adminUnitFilter);
+    }
+
+    if (adminSeatSearch.trim()) {
+      const searchSeat = adminSeatSearch.trim().toUpperCase();
+      filtered = filtered.filter((a) => a.seat.includes(searchSeat));
+    }
+
+    return filtered;
+  }, [applications, adminFilter, adminUnitFilter, adminSeatSearch]);
 
   const generateTicketId = () => {
     const random = Math.floor(100000 + Math.random() * 900000);
@@ -328,6 +397,7 @@ export default function RMSTUBusApplicationPage() {
         travelUpdate: "none",
         travelUpdatedAt: null,
         rejectionNote: null,
+        carNumber: null,
       };
 
       await addDoc(collection(db, "applications"), application);
@@ -395,6 +465,285 @@ export default function RMSTUBusApplicationPage() {
     }
   };
 
+  const handleAdminLogin = () => {
+    if (adminPasscode === ADMIN_PASSCODE) {
+      setAdminOpen(true);
+      setMessage("Admin panel open হয়েছে।");
+    } else {
+      setMessage("ভুল admin passcode।");
+    }
+  };
+
+  const updateStatus = async (application: Application, nextStatus: StatusType) => {
+    if (!application.id) return;
+
+    setAdminBusyId(application.id);
+    setMessage("");
+
+    try {
+      if (nextStatus === "approved") {
+        const approvedSeatQuery = query(
+          collection(db, "applications"),
+          where("seat", "==", application.seat),
+          where("unit", "==", application.unit),
+          where("status", "==", "approved")
+        );
+        const approvedSeatSnapshot = await getDocs(approvedSeatQuery);
+
+        const existingApprovedCount = approvedSeatSnapshot.docs.filter(
+          (docItem) => docItem.id !== application.id
+        ).length;
+
+        // For A Unit, allow up to 2 approvals per seat
+        if (application.unit === "A Unit") {
+          if (existingApprovedCount >= 2) {
+            setMessage("এই ইউনিটের এই সিটে ইতোমধ্যে ২ জন প্রার্থী এপ্রুভ হয়েছেন।");
+            setAdminBusyId("");
+            return;
+          }
+        } else {
+          // For other units, allow only 1 approval per seat
+          if (existingApprovedCount >= 1) {
+            setMessage("এই ইউনিটের এই সিটে ইতোমধ্যে ওয়েটিং লিস্টে আপনার আগে থাকা একজন প্রার্থী এপ্রুভ হয়েছেন। আমার নিজেদের ও ইচ্ছে হইতেছে সবাইকে নিয়ে যাওয়ার কিন্তু আমাদের লিমিটেশনের জন্য আমরা আন্তরিক ভাবে ক্ষমা প্রার্থী।");
+            setAdminBusyId("");
+            return;
+          }
+        }
+      }
+
+      const payload: Partial<Application> = {
+        status: nextStatus,
+      };
+
+      if (nextStatus !== "rejected") {
+        payload.rejectionNote = undefined;
+      }
+
+      // Assign car number for A Unit approvals
+      if (nextStatus === "approved" && application.unit === "A Unit") {
+        const approvedSeatQuery = query(
+          collection(db, "applications"),
+          where("seat", "==", application.seat),
+          where("unit", "==", application.unit),
+          where("status", "==", "approved")
+        );
+        const approvedSeatSnapshot = await getDocs(approvedSeatQuery);
+        const existingApprovedCount = approvedSeatSnapshot.docs.filter(
+          (docItem) => docItem.id !== application.id
+        ).length;
+        payload.carNumber = existingApprovedCount + 1; // 1 for first, 2 for second
+      }
+
+      await updateDoc(doc(db, "applications", application.id), payload);
+
+      if (nextStatus === "approved") {
+        const sameSeatPendingSameUnit = applications.filter(
+          (item) =>
+            item.id !== application.id &&
+            item.seat === application.seat &&
+            item.unit === application.unit &&
+            item.status === "pending"
+        );
+
+        for (const item of sameSeatPendingSameUnit) {
+          if (item.id) {
+            await updateDoc(doc(db, "applications", item.id), {
+              status: "rejected",
+              rejectionNote: "আপনার রিজেকশনের জন্য আন্তরিক ভাবে দু:খিত। আমাদের সিট সংখ্যা লিমিটেড। আপনার আগে আবেদন করা অন্য কোন আবেদনকারী এপ্রুভ হয়েছেন। আমাদের ইচ্ছে ছিলো সবাইকে নিয়ে যাওয়ার কিন্তু আমাদের লিমিটেশনের কারণে নিয়ে যেতে পারছি না।এর জন্য আমরা আন্তরিক ভাবে দু:খ প্রকাশ করছি",
+            });
+          }
+        }
+      }
+
+      setMessage("Status update সফল হয়েছে।");
+      await loadApplications();
+    } catch (error) {
+      console.error(error);
+      setMessage("Status update করা যায়নি।");
+    } finally {
+      setAdminBusyId("");
+    }
+  };
+
+  const rejectWithNote = async (application: Application) => {
+    if (!application.id) return;
+
+    const note = (adminRejectNotes[application.id] || "").trim();
+
+    if (!note) {
+      setMessage("Reject করার আগে একটি note/reason লিখুন।");
+      return;
+    }
+
+    setAdminBusyId(application.id);
+    setMessage("");
+
+    try {
+      await updateDoc(doc(db, "applications", application.id), {
+        status: "rejected",
+        rejectionNote: note,
+      });
+
+      setAdminRejectNotes((prev) => ({ ...prev, [application.id as string]: "" }));
+      setMessage("Applicant rejected করা হয়েছে এবং note save হয়েছে।");
+      await loadApplications();
+    } catch (error) {
+      console.error(error);
+      setMessage("Reject note save করা যায়নি।");
+    } finally {
+      setAdminBusyId("");
+    }
+  };
+
+  const updateRejectionNote = async (application: Application) => {
+    if (!application.id) return;
+
+    const updatedNote = (adminUpdatedRejectionNotes[application.id] || "").trim();
+
+    if (!updatedNote) {
+      setMessage("আপডেট করার আগে কারণ লিখুন।");
+      return;
+    }
+
+    setAdminBusyId(application.id);
+    setMessage("");
+
+    try {
+      await updateDoc(doc(db, "applications", application.id), {
+        rejectionNote: updatedNote,
+      });
+
+      setAdminUpdatedRejectionNotes((prev) => ({ ...prev, [application.id as string]: "" }));
+      setAdminEditingRejectedId(null);
+      setMessage("রিজেকশন নোট আপডেট হয়েছে।");
+      await loadApplications();
+    } catch (error) {
+      console.error(error);
+      setMessage("নোট আপডেট করা যায়নি।");
+    } finally {
+      setAdminBusyId("");
+    }
+  };
+
+  const assignSeatToApplicant = async (application: Application) => {
+    if (!application.id) return;
+
+    const nextSeatRaw = adminSeatAssignments[application.id] || "";
+    const nextSeat = nextSeatRaw.trim().toUpperCase();
+
+    if (!nextSeat) {
+      setMessage("নতুন seat লিখুন।");
+      return;
+    }
+
+    if (!ALL_SEATS.includes(nextSeat)) {
+      setMessage("এই seat নামটি valid না।");
+      return;
+    }
+
+    if (nextSeat === application.seat) {
+      setMessage("Applicant already এই seat-এ আছে।");
+      return;
+    }
+
+    setAdminBusyId(application.id);
+    setMessage("");
+
+    try {
+      const approvedSeatQuery = query(
+        collection(db, "applications"),
+        where("seat", "==", nextSeat),
+        where("unit", "==", application.unit),
+        where("status", "==", "approved")
+      );
+      const approvedSeatSnapshot = await getDocs(approvedSeatQuery);
+      const existingApprovedCount = approvedSeatSnapshot.docs.length;
+
+      // Check if assignment is allowed
+      if (application.unit === "A Unit") {
+        if (existingApprovedCount >= 2) {
+          setMessage("এই সিটে ইতোমধ্যে ২ জন এপ্রুভ হয়েছেন। নতুন assignment করা যাবে না।");
+          setAdminBusyId("");
+          return;
+        }
+      } else {
+        if (existingApprovedCount >= 1) {
+          setMessage("এই সিটে ইতোমধ্যে কেউ এপ্রুভ হয়েছেন। নতুন assignment করা যাবে না।");
+          setAdminBusyId("");
+          return;
+        }
+      }
+
+      // For A Unit, if there's 1 approved, reject them
+      // For other units, this shouldn't happen due to the check above
+      if (existingApprovedCount > 0) {
+        for (const docItem of approvedSeatSnapshot.docs) {
+          const currentApprovedData = docItem.data() as Application;
+          await updateDoc(doc(db, "applications", docItem.id), {
+            status: "rejected",
+            rejectionNote: `এই সিটে ${application.name} (${application.ticketId}) assign করা হয়েছে।`,
+          });
+        }
+        setMessage(`পূর্বের approved applicant(s) কে rejected করে নতুন applicant কে assign করা হলো।`);
+      }
+
+      const payload: Partial<Application> = {
+        seat: nextSeat,
+      };
+
+      // If assigning to A Unit and the application is approved, assign car number
+      if (application.unit === "A Unit" && application.status === "approved") {
+        const approvedSeatQuery = query(
+          collection(db, "applications"),
+          where("seat", "==", nextSeat),
+          where("unit", "==", application.unit),
+          where("status", "==", "approved")
+        );
+        const approvedSeatSnapshot = await getDocs(approvedSeatQuery);
+        const existingApprovedCount = approvedSeatSnapshot.docs.filter(
+          (docItem) => docItem.id !== application.id
+        ).length;
+        payload.carNumber = existingApprovedCount + 1; // 1 for first, 2 for second
+      }
+
+      await updateDoc(doc(db, "applications", application.id), payload);
+
+      setAdminSeatAssignments((prev) => ({ ...prev, [application.id as string]: "" }));
+      setMessage(`Seat successfully ${application.seat} থেকে ${nextSeat} এ assign করা হয়েছে।`);
+      await loadApplications();
+    } catch (error) {
+      console.error(error);
+      setMessage("Seat assign করা যায়নি।");
+    } finally {
+      setAdminBusyId("");
+    }
+  };
+
+  const updateTravelStatus = async (
+    application: Application,
+    nextTravelUpdate: TravelUpdateType
+  ) => {
+    if (!application.id) return;
+
+    setAdminBusyId(application.id);
+    setMessage("");
+
+    try {
+      await updateDoc(doc(db, "applications", application.id), {
+        travelUpdate: nextTravelUpdate,
+        travelUpdatedAt: new Date().toISOString(),
+      });
+
+      setMessage("Travel update সফল হয়েছে।");
+      await loadApplications();
+    } catch (error) {
+      console.error(error);
+      setMessage("Travel update করা যায়নি।");
+    } finally {
+      setAdminBusyId("");
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#f3fbf5_0%,#ffffff_60%,#fff7f7_100%)] px-3 py-4 sm:px-4 md:px-6">
@@ -420,15 +769,6 @@ export default function RMSTUBusApplicationPage() {
       )}
       <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
         <div className="flex justify-end gap-2">
-          <a href="/admin">
-            <Button
-              type="button"
-              variant="outline"
-              className="rounded-2xl border-red-300 text-red-800 hover:bg-red-50"
-            >
-              Admin Access
-            </Button>
-          </a>
           <Button
             type="button"
             variant="outline"
@@ -478,7 +818,10 @@ export default function RMSTUBusApplicationPage() {
               <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-5">
                 <div className="rounded-3xl border border-white/20 bg-white/10 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
                   <div className="text-lg font-bold sm:text-xl">{totalSeats}</div>
-                  <div className="text-[11px] text-white/85 sm:text-xs">মোট সিট</div>
+                  <div className="text-[11px] text-white/85 sm:text-xs">প্রতি ইউনিটে সিট</div>
+                  <div className="mt-1 text-[9px] text-white/75 sm:text-[10px]">
+                    Bus 2 ta kora hoise, এখন seat 38*2 = {SEATS_PER_UNIT * A_UNIT_BUS_COUNT}
+                  </div>
                 </div>
 
                 <div className="rounded-3xl border border-white/20 bg-white/10 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] backdrop-blur-md">
@@ -614,7 +957,8 @@ export default function RMSTUBusApplicationPage() {
                         if (!seat) {
                           return <div key={`${rowIndex}-${seatIndex}-gap`} className="w-4 sm:w-6" />;
                         }
-                        const isApproved = approvedSeatsForSelectedUnit.includes(seat);
+                        const approvedCountForSeat = approvedSeatsForSelectedUnit.filter(s => s === seat).length;
+                        const isFullyApproved = fullyApprovedSeatsForSelectedUnit.includes(seat);
                         const waitingCountForSeat = waitingCountsBySeatForSelectedUnit[seat] || 0;
                         const isSelected = selectedSeat === seat;
 
@@ -622,20 +966,27 @@ export default function RMSTUBusApplicationPage() {
                           <button
                             key={seat}
                             type="button"
-                            disabled={isApproved || isSubmitting}
+                            disabled={isFullyApproved || isSubmitting}
                             onClick={() => setSelectedSeat(seat)}
                             className={`relative h-12 w-12 rounded-2xl border text-sm font-semibold transition sm:h-14 sm:w-14 ${
-                              isApproved
+                              isFullyApproved
                                 ? "cursor-not-allowed border-red-200 bg-red-100 text-red-700"
                                 : isSelected
                                 ? "border-green-800 bg-green-700 text-white"
+                                : approvedCountForSeat > 0
+                                ? "border-blue-200 bg-blue-100 text-blue-800 hover:bg-blue-200"
                                 : waitingCountForSeat > 0
                                 ? "border-amber-200 bg-amber-100 text-amber-800 hover:bg-amber-200"
                                 : "border-green-200 bg-white text-green-800 hover:bg-green-50"
                             }`}
                           >
                             {seat}
-                            {waitingCountForSeat > 0 && !isApproved && (
+                            {approvedCountForSeat > 0 && !isFullyApproved && (
+                              <span className="absolute -right-1.5 -top-1.5 rounded-full bg-blue-600 px-1.5 py-0.5 text-[9px] font-bold text-white shadow">
+                                A-{approvedCountForSeat}
+                              </span>
+                            )}
+                            {waitingCountForSeat > 0 && !isFullyApproved && approvedCountForSeat === 0 && (
                               <span className="absolute -right-1.5 -top-1.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[9px] font-bold text-white shadow">
                                 W-{waitingCountForSeat}
                               </span>
@@ -654,11 +1005,14 @@ export default function RMSTUBusApplicationPage() {
                   <div className="flex items-center gap-2 rounded-xl bg-green-50 p-2">
                     <span className="h-4 w-4 rounded bg-green-700" /> Selected
                   </div>
+                  <div className="flex items-center gap-2 rounded-xl bg-blue-50 p-2">
+                    <span className="h-4 w-4 rounded bg-blue-200" /> Partially Approved (A Unit)
+                  </div>
                   <div className="flex items-center gap-2 rounded-xl bg-amber-50 p-2">
                     <span className="h-4 w-4 rounded bg-amber-200" /> Waiting আছে
                   </div>
                   <div className="flex items-center gap-2 rounded-xl bg-red-50 p-2">
-                    <span className="h-4 w-4 rounded bg-red-200" /> Approved
+                    <span className="h-4 w-4 rounded bg-red-200" /> Fully Approved
                   </div>
                 </div>
 
@@ -774,7 +1128,13 @@ export default function RMSTUBusApplicationPage() {
                           {item.status === "approved" && (
                             <div className="mt-2 rounded-2xl border-2 border-green-400 bg-green-50 px-3 py-2">
                               <span className="font-bold text-green-800">
-                                ✓ Congratulations! আপনার seat টি Approve হয়েছে। 01643097477 এই number এ whatsapp এ knock দিয়ে Bus Group এ Join হয়ে নিন।
+                                ✓ Congratulations! আপনার seat টি Approve হয়েছে।
+                                {item.unit === "A Unit" && item.carNumber && (
+                                  <span className="block mt-1">
+                                    আপনি {item.carNumber}নং গাড়ির জন্য এপ্রুভ হয়েছেন।
+                                  </span>
+                                )}
+                                01643097477 এই number এ whatsapp এ knock দিয়ে Bus Group এ Join হয়ে নিন।
                               </span>
                             </div>
                           )}
@@ -865,7 +1225,13 @@ export default function RMSTUBusApplicationPage() {
                           {displayApp.status === "approved" && (
                             <div className="rounded-2xl border-2 border-green-400 bg-green-50 px-3 py-2">
                               <span className="font-bold text-green-800">
-                                ✓ Congratulations! আপনার seat টি Approve হয়েছে। 01643097477 এই number এ whatsapp এ knock দিয়ে Bus Group এ Join হয়ে নিন।
+                                ✓ Congratulations! আপনার seat টি Approve হয়েছে।
+                                {displayApp.unit === "A Unit" && displayApp.carNumber && (
+                                  <span className="block mt-1">
+                                    আপনি {displayApp.carNumber}নং গাড়ির জন্য এপ্রুভ হয়েছেন।
+                                  </span>
+                                )}
+                                01643097477 এই number এ whatsapp এ knock দিয়ে Bus Group এ Join হয়ে নিন।
                               </span>
                             </div>
                           )}
@@ -929,6 +1295,405 @@ export default function RMSTUBusApplicationPage() {
             </Card>
           </div>
         </div>
+
+        {adminOpen && (
+          <Card className="rounded-[28px] border border-green-100 bg-white shadow-md">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg text-green-800 sm:text-xl">
+                Admin Dashboard
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-green-100 bg-green-50 p-3 text-center">
+                  <div className="text-lg font-bold text-green-800 sm:text-xl">{pendingCount}</div>
+                  <div className="text-xs text-slate-600">Pending</div>
+                </div>
+                <div className="rounded-2xl border border-green-100 bg-green-100 p-3 text-center">
+                  <div className="text-lg font-bold text-green-800 sm:text-xl">{approvedCount}</div>
+                  <div className="text-xs text-slate-600">Approved</div>
+                </div>
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-center">
+                  <div className="text-lg font-bold text-red-700 sm:text-xl">{rejectedCount}</div>
+                  <div className="text-xs text-slate-600">Rejected</div>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-center">
+                  <div className="text-lg font-bold text-amber-700 sm:text-xl">{waitlistedCount}</div>
+                  <div className="text-xs text-slate-600">Waitlisted</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="rounded-2xl border border-green-100 bg-white p-3 text-center">
+                  <div className="text-lg font-bold text-green-800">{aUnitCount}</div>
+                  <div className="text-xs text-slate-600">A Unit</div>
+                  <div className="mt-1 text-[11px] text-amber-700">W: {aUnitWaiting}</div>
+                  <div className="text-[11px] text-green-700">A: {aUnitApproved}</div>
+                </div>
+                <div className="rounded-2xl border border-green-100 bg-white p-3 text-center">
+                  <div className="text-lg font-bold text-green-800">{bUnitCount}</div>
+                  <div className="text-xs text-slate-600">B Unit</div>
+                  <div className="mt-1 text-[11px] text-amber-700">W: {bUnitWaiting}</div>
+                  <div className="text-[11px] text-green-700">A: {bUnitApproved}</div>
+                </div>
+                <div className="rounded-2xl border border-green-100 bg-white p-3 text-center">
+                  <div className="text-lg font-bold text-green-800">{cUnitCount}</div>
+                  <div className="text-xs text-slate-600">C Unit</div>
+                  <div className="mt-1 text-[11px] text-amber-700">W: {cUnitWaiting}</div>
+                  <div className="text-[11px] text-green-700">A: {cUnitApproved}</div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 rounded-2xl border border-green-100 bg-green-50/60 p-4">
+                <div className="text-sm font-semibold text-green-900">
+                  ইউনিট ও সিট দিয়ে সার্চ করুন
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-green-900">Unit filter</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAdminUnitFilter("all")}
+                        className={`rounded-xl border px-3 py-2 text-sm ${
+                          adminUnitFilter === "all"
+                            ? "bg-red-600 text-white border-red-600"
+                            : "bg-white text-green-800 border-green-200"
+                        }`}
+                      >
+                        All
+                      </button>
+                      {UNITS.map((item) => (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => setAdminUnitFilter(item)}
+                          className={`rounded-xl border px-3 py-2 text-sm ${
+                            adminUnitFilter === item
+                              ? "bg-red-600 text-white border-red-600"
+                              : "bg-white text-green-800 border-green-200"
+                          }`}
+                        >
+                          {item}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-green-900">Seat search</Label>
+                    <Input
+                      value={adminSeatSearch}
+                      onChange={(e) => setAdminSeatSearch(e.target.value)}
+                      placeholder="যেমন A1 / H4 / J2"
+                      className="h-11 rounded-2xl border-green-200 text-base focus-visible:ring-green-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <Badge className="w-fit rounded-full border border-green-200 bg-white px-3 py-1 text-green-800">
+                    Status: {adminFilter}
+                  </Badge>
+                  <Badge className="w-fit rounded-full border border-green-200 bg-white px-3 py-1 text-green-800">
+                    Unit: {adminUnitFilter}
+                  </Badge>
+                  <Badge className="w-fit rounded-full border border-green-200 bg-white px-3 py-1 text-green-800">
+                    Seat: {adminSeatSearch.trim() || "all"}
+                  </Badge>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {(["all", "pending", "approved", "rejected", "waitlisted"] as const).map(
+                    (status) => (
+                      <button
+                        key={status}
+                        type="button"
+                        onClick={() => setAdminFilter(status)}
+                        className={`rounded-full px-3 py-2 text-sm ${
+                          adminFilter === status
+                            ? "bg-red-600 text-white"
+                            : "border border-green-200 bg-white text-green-800"
+                        }`}
+                      >
+                        {status}
+                      </button>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+                {adminApplications.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-2xl border border-green-100 bg-white p-4 text-sm text-slate-700 shadow-sm"
+                  >
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div className="font-semibold text-green-900">{item.name}</div>
+                      <div className="flex flex-wrap gap-2">
+                        <Badge className={`rounded-full ${statusClass(item.status)}`}>
+                          {statusBadgeText(item.status)}
+                        </Badge>
+                        <Badge className={`rounded-full ${travelUpdateClass(item.travelUpdate)}`}>
+                          {travelUpdateText(item.travelUpdate)}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 leading-6">
+                      <div>
+                        <span className="font-medium">Ticket ID:</span> {item.ticketId}
+                      </div>
+                      <div>
+                        <span className="font-medium">Phone:</span> {item.phone}
+                      </div>
+                      <div>
+                        <span className="font-medium">Unit:</span> {item.unit}
+                      </div>
+                      <div>
+                        <span className="font-medium">Seat:</span> {item.seat}
+                      </div>
+                      <div>
+                        <span className="font-medium">Applied At:</span>{" "}
+                        {new Date(item.createdAt).toLocaleString()}
+                      </div>
+                      <div>
+                        <span className="font-medium">Travel Update Time:</span>{" "}
+                        {formatDateTime(item.travelUpdatedAt)}
+                      </div>
+                      {item.status === "rejected" && (
+                        <div className="mt-3 space-y-2">
+                          {adminEditingRejectedId === item.id ? (
+                            <div className="rounded-2xl border border-red-300 bg-red-100 p-3">
+                              <div className="mb-2 text-sm font-semibold text-red-800">
+                                {item.rejectionNote ? "রিজেকশন নোট এডিট করুন" : "রিজেকশন নোট যোগ করুন"}
+                              </div>
+                              <Input
+                                value={adminUpdatedRejectionNotes[item.id] || item.rejectionNote || ""}
+                                onChange={(e) =>
+                                  setAdminUpdatedRejectionNotes((prev) => ({
+                                    ...prev,
+                                    [item.id || ""]: e.target.value,
+                                  }))
+                                }
+                                placeholder="রিজেকশনের কারণ লিখুন"
+                                className="mb-2 h-11 rounded-2xl border-red-200 bg-white"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  className="flex-1 rounded-2xl bg-red-600 text-white hover:bg-red-700"
+                                  disabled={adminBusyId === item.id}
+                                  onClick={() => updateRejectionNote(item)}
+                                >
+                                  সেভ করুন
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="flex-1 rounded-2xl border-red-300 text-red-700 hover:bg-red-50"
+                                  disabled={adminBusyId === item.id}
+                                  onClick={() => {
+                                    setAdminEditingRejectedId(null);
+                                    setAdminUpdatedRejectionNotes((prev) => ({
+                                      ...prev,
+                                      [item.id || ""]: "",
+                                    }));
+                                  }}
+                                >
+                                  ক্যান্সেল
+                                </Button>
+                              </div>
+                            </div>
+                          ) : item.rejectionNote ? (
+                            <div className="flex items-start justify-between gap-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2">
+                              <div className="text-red-700">
+                                <span className="font-medium">Reject Note:</span> {item.rejectionNote}
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="rounded-lg border-red-300 text-red-700 hover:bg-red-100"
+                                disabled={adminBusyId === item.id}
+                                onClick={() => {
+                                  if (item.id) {
+                                    setAdminEditingRejectedId(item.id);
+                                    setAdminUpdatedRejectionNotes((prev) => ({
+                                      ...prev,
+                                      [item.id || ""]: item.rejectionNote || "",
+                                    }));
+                                  }
+                                }}
+                              >
+                                Edit
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              type="button"
+                              className="w-full rounded-2xl border border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+                              disabled={adminBusyId === item.id}
+                              onClick={() => {
+                                if (item.id) {
+                                  setAdminEditingRejectedId(item.id);
+                                  setAdminUpdatedRejectionNotes((prev) => ({
+                                    ...prev,
+                                    [item.id || ""]: "",
+                                  }));
+                                }
+                              }}
+                            >
+                              + রিজেকশন নোট যোগ করুন
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {(item.status === "pending" || item.status === "waitlisted" || item.status === "approved" || item.status === "rejected") && (
+                      <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3">
+                        <div className="mb-2 text-sm font-semibold text-amber-800">
+                          অন্য সিট assign করুন
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                          <Input
+                            value={adminSeatAssignments[item.id || ""] || ""}
+                            onChange={(e) =>
+                              setAdminSeatAssignments((prev) => ({
+                                ...prev,
+                                [item.id || ""]: e.target.value,
+                              }))
+                            }
+                            placeholder="নতুন seat যেমন B2"
+                            className="h-11 rounded-2xl border-amber-200 bg-white"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="rounded-2xl border-amber-300 text-amber-800 hover:bg-amber-100"
+                            disabled={adminBusyId === item.id}
+                            onClick={() => assignSeatToApplicant(item)}
+                          >
+                            Seat Assign
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <Button
+                        className="rounded-2xl bg-green-700 text-white hover:bg-green-800"
+                        disabled={adminBusyId === item.id || item.status === "approved"}
+                        onClick={() => updateStatus(item, "approved")}
+                      >
+                        <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="rounded-2xl border-amber-300 text-amber-700 hover:bg-amber-50"
+                        disabled={adminBusyId === item.id || item.status === "waitlisted"}
+                        onClick={() => updateStatus(item, "waitlisted")}
+                      >
+                        <Clock3 className="mr-1 h-4 w-4" /> Waitlist
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        className="rounded-2xl border-red-300 text-red-700 hover:bg-red-50"
+                        disabled={adminBusyId === item.id || item.status === "rejected"}
+                        onClick={() => rejectWithNote(item)}
+                      >
+                        <XCircle className="mr-1 h-4 w-4" /> Reject with Note
+                      </Button>
+                    </div>
+
+                    {item.status !== "approved" && (
+                      <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3">
+                        <div className="mb-2 text-sm font-semibold text-red-800">
+                          Reject note
+                        </div>
+                        <Input
+                          value={adminRejectNotes[item.id || ""] || ""}
+                          onChange={(e) =>
+                            setAdminRejectNotes((prev) => ({
+                              ...prev,
+                              [item.id || ""]: e.target.value,
+                            }))
+                          }
+                          placeholder="Reject করার কারণ লিখুন"
+                          className="h-11 rounded-2xl border-red-200 bg-white"
+                        />
+                      </div>
+                    )}
+
+                    {item.status === "approved" && (
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <Button
+                          variant="outline"
+                          className="rounded-2xl border-sky-300 text-sky-700 hover:bg-sky-50"
+                          disabled={adminBusyId === item.id}
+                          onClick={() => updateTravelStatus(item, "departing")}
+                        >
+                          <LocateFixed className="mr-1 h-4 w-4" /> Mark Departing
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          className="rounded-2xl border-violet-300 text-violet-700 hover:bg-violet-50"
+                          disabled={adminBusyId === item.id}
+                          onClick={() => updateTravelStatus(item, "arriving")}
+                        >
+                          <Flag className="mr-1 h-4 w-4" /> Mark Arriving
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {adminApplications.length === 0 && (
+                  <div className="rounded-2xl border border-green-100 bg-green-50 p-4 text-sm text-slate-600">
+                    কোনো data পাওয়া যায়নি।
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className="rounded-[28px] border border-green-100 bg-white shadow-md">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg text-green-800 sm:text-xl">
+              <LayoutDashboard className="h-5 w-5 text-red-600" /> Admin Access (Only for organizers)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {!adminOpen ? (
+              <>
+                <Input
+                  className="h-11 rounded-2xl border-green-200 text-base focus-visible:ring-green-500"
+                  type="password"
+                  placeholder="Admin passcode"
+                  value={adminPasscode}
+                  onChange={(e) => setAdminPasscode(e.target.value)}
+                />
+                <Button
+                  className="h-11 w-full rounded-2xl bg-green-700 text-base text-white hover:bg-green-800"
+                  onClick={handleAdminLogin}
+                >
+                  Admin Panel Open
+                </Button>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                Admin panel active.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
