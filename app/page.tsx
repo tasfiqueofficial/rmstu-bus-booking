@@ -515,11 +515,6 @@ export default function RMSTUBusApplicationPage() {
         status: nextStatus,
       };
 
-      if (nextStatus !== "rejected") {
-        payload.rejectionNote = undefined;
-      }
-
-      // Assign car number for A Unit approvals
       if (nextStatus === "approved" && application.unit === "A Unit") {
         const approvedSeatQuery = query(
           collection(db, "applications"),
@@ -532,6 +527,11 @@ export default function RMSTUBusApplicationPage() {
           (docItem) => docItem.id !== application.id
         ).length;
         payload.carNumber = existingApprovedCount + 1; // 1 for first, 2 for second
+      }
+
+      // Keep rejection note only for rejected status.
+      if (nextStatus === "rejected") {
+        payload.rejectionNote = application.rejectionNote || null;
       }
 
       await updateDoc(doc(db, "applications", application.id), payload);
